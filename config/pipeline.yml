@@ -61,9 +61,11 @@ elements:
 narratives:
   provider: auto                # gemini when GEMINI_API_KEY is set, otherwise the offline mock
   # Tried in order; a model retired for the key (404 NOT_FOUND) falls through to the next.
-  # gemini-2.5-flash(-lite) were already retired for new keys in October 2026.
-  models: [gemini-3.5-flash-lite, gemini-flash-lite-latest, gemini-flash-latest]
-  prompt: prompts/narrative_v2.md   # v1 kept for comparison: `wx eval --prompt prompts/narrative_v1.md`
+  # Pinned versions, not "-latest" aliases, which can change behaviour without notice: run
+  # `wx eval` before changing a model here. gemini-2.5-flash(-lite) were retired for new keys in
+  # October 2026.
+  models: [gemini-3.5-flash-lite, gemini-3.8-flash]
+  prompt: prompts/narrative_v3.md   # older versions kept for comparison: `wx eval --prompt prompts/narrative_v1.md`
   days: 14                      # most recent days with data, per station
   batch_size: 10                # station-days per request
   # Free-tier limits are per project, shown only in AI Studio, and change; these stay well under
@@ -72,6 +74,18 @@ narratives:
   requests_per_minute: 5
   max_requests_per_run: 30
   temperature: 0.3
+  # Intensity words a narrative may use only when the data supports them, checked as warnings.
+  # Thresholds follow Environment Canada's warning criteria where one exists (rainfall 25-50 mm,
+  # snowfall 15 cm, wind gusts 70-90 km/h in 24 h, depending on region), set at the lower end.
+  # Values are in display units; an element that isn't reported counts as 0. Patterns are regular
+  # expressions in single quotes (YAML would treat \b in double quotes as an escape).
+  intensity:
+    - {pattern: 'heavy\b.{0,30}\b(rain|precipitation)|(rain|precipitation)\b.{0,15}\bheavy|downpour|torrential', element: PRCP, min: 25}
+    - {pattern: 'heavy\b.{0,30}\bsnow|snowstorm|blizzard', element: SNOW, min: 15}
+    - {pattern: 'bitter(ly)?|frigid|extreme(ly)? cold|deep freeze', element: TMIN, max: -20}
+    - {pattern: 'swelter\w*|scorch\w*|heat wave|very hot', element: TMAX, min: 30}
+    - {pattern: '(strong|powerful|damaging|fierce)\b.{0,15}\b(gust|wind)', element: WSFG, min: 70}
+    - {pattern: 'light winds?|calm|still air', element: WSFG, max: 40}
 
 quality:
   freshness_warn_days: 7        # latest observation older than this: warning

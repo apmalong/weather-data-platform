@@ -49,3 +49,15 @@ def test_request_cap_defers_the_rest(cfg):
     cfg.narratives.max_requests_per_run = 1
     result = pipeline.run(cfg, provider=MockProvider(), days=5)
     assert (result["generated"], result["deferred"]) == (2, 3)
+
+
+def test_days_with_nothing_to_report_skip_the_model(cfg):
+    empty = [dict(f, status="missing", value=None) for f in FACTS]
+    conn = duckdb.connect(str(cfg.warehouse))
+    conn.execute("update marts.mart_narrative_input set facts = ?, input_hash = 'empty' where obs_date = '2026-09-29'",
+                 [json.dumps(empty)])
+    conn.close()
+    result = pipeline.run(cfg, provider=MockProvider(), days=1)
+    assert (result["no_data"], result["requests"], result["passed"]) == (1, 0, 1)
+    conn = duckdb.connect(str(cfg.warehouse), read_only=True)
+    assert conn.execute("select provider from narratives.daily").fetchone() == ("rule",)

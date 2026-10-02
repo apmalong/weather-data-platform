@@ -65,3 +65,46 @@ def test_false_claim_of_missing_data_fails_but_clauses_are_kept_apart():
                      "2026-09-16")
     assert "no_false_gaps" in failures(wrong) and not passed(wrong)
     assert "no_false_gaps" not in failures(right)
+
+
+GUSTY = FACTS[:3] + [
+    {"element": "WSFG", "label": "Peak gust wind speed", "value": 32.0, "unit": "km/h", "status": "valid"},
+    {"element": "WDFG", "label": "Direction of peak wind gust", "value": 290.0, "unit": "degrees", "status": "valid",
+     "compass": "W"},
+]
+
+
+def test_wrong_compass_point_fails():
+    # The real failure: 290 degrees written as NW, in 6 of the narratives before compass points were given.
+    wrong = validate("Gusts from the NW reached 32 km/h; a trace of rain.", [], GUSTY, "2026-09-16")
+    right = validate("Gusts from the west reached 32 km/h; a trace of rain.", [], GUSTY, "2026-09-16")
+    assert "compass_matches" in failures(wrong) and "compass_matches" not in failures(right)
+    assert "compass_matches" in failures(validate("Gusts from the WNW.", [], GUSTY, "2026-09-16"))
+
+
+def test_swapped_high_and_low_fail():
+    checks = validate("A high of 15 °C and a low of 21 °C, with a trace of rain.", CITED, FACTS, "2026-09-28")
+    assert "high_low_attribution" in failures(checks) and not passed(checks)
+
+
+def test_trace_is_not_dry():
+    assert "no_false_zero" in failures(validate("It stayed dry with a high of 21 °C.", [], FACTS, "2026-09-28"))
+    assert "no_false_zero" not in failures(
+        validate("There was no measurable precipitation, only a trace.", [], FACTS, "2026-09-28"))
+
+
+def test_naming_another_city_fails():
+    checks = validate("Montreal reached a high of 21 °C and a low of 15 °C.", CITED, FACTS, "2026-09-28",
+                      city="Toronto", other_cities=["Toronto", "Montreal"])
+    assert {c.name: c.severity for c in checks if not c.passed}.get("names_own_city") == "error"
+
+
+def test_weather_types_never_given_fail():
+    assert "no_invented_topics" in failures(validate("Freezing rain fell overnight.", [], FACTS, "2026-09-28"))
+
+
+def test_intensity_words_need_the_data_to_back_them():
+    rules = [{"pattern": r"heavy\b.{0,30}\b(rain|precipitation)", "element": "PRCP", "min": 25, "max": None}]
+    checks = validate("Heavy rain fell, a trace in all.", [], FACTS, "2026-09-28", intensity=rules)
+    assert {c.name: c.severity for c in checks if not c.passed}.get("intensity_supported") == "warn"
+    assert passed(checks) or "no_false_zero" in failures(checks)  # intensity alone never fails a narrative

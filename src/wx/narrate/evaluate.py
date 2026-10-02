@@ -76,7 +76,8 @@ def run(cfg: Config, prompt_path: Path | None = None, provider: Provider | None 
         for case in cases:
             day = days[case["id"]]
             draft = drafts.get((day.station_id, day.obs_date)) or {"narrative": "", "cited": []}
-            checks = validate.validate(draft["narrative"], draft.get("cited") or [], day.facts, day.obs_date)
+            checks = validate.validate(draft["narrative"], draft.get("cited") or [], day.facts, day.obs_date,
+                                       day.city, [c.city for c in cfg.stations.cities], cfg.narratives.intensity)
             style = [name for name, (pattern, _) in STYLE.items() if pattern.search(draft["narrative"])]
             details = "; ".join(f"{c.name}: {c.detail}" for c in checks if not c.passed and c.detail)
             result = {"case": case["id"], "city": day.city, "date": day.obs_date, "narrative": draft["narrative"],

@@ -202,45 +202,65 @@ Canadian data at once. Loading only "dates after the last load" would silently m
 ### Narratives
 
 `wx narrate` reads `marts.mart_narrative_input`, one fact sheet per station-day built only from the
-marts: each fact has a label, a value in display units (gusts in km/h, snow in cm, set in config)
-and its status. Requests carry 10 station-days at a time, and Gemini returns structured JSON: the
-narrative plus every figure it used and which element it came from.
+marts: each fact has a label, a value in display units (gusts in km/h, snow in cm, set in config),
+its status and, for wind direction, the compass point, computed in SQL. Requests carry 10
+station-days at a time, and Gemini returns structured JSON: the narrative plus every figure it used
+and which element it came from.
 
 - **The connector:**
   - **Key:** read only from the environment or a git-ignored `.env`; never logged.
-  - **Models:** tried in configured order. A model retired for the key falls through to the next
-    (`gemini-2.5-flash` was already retired for new keys while this was built).
+  - **Models:** pinned versions tried in configured order, never `-latest` aliases that can change
+    behaviour silently. A model retired for the key falls through to the next (`gemini-2.5-flash`
+    was already retired for new keys while this was built). Run `wx eval` before changing models.
   - **Free-tier limits:** they're per project, shown only in AI Studio and liable to change, so the
     connector paces requests, waits the delay the API asks for on a per-minute 429, and on an
     exhausted daily quota moves to the next model and then stops cleanly. The cache means the next
     run resumes where it stopped.
   - **Graders' keys:** the same code path runs with any key. Without one it uses the mock.
-- **Validation** (the bonus "compare narratives against source data"), on every narrative before it's stored:
+- **Nothing to describe, nothing to invent:** a day with no usable temperature or precipitation gets
+  a fixed "No readings were available" sentence instead of a model call.
+- **Validation** (the bonus "compare narratives against source data"), on every narrative before
+  it's stored. A failed check fails the narrative:
 
   | Check | Fails when |
   |---|---|
   | `cited_values_match` | a figure the model says it used doesn't match the fact it names |
   | `cited_only_usable` | it cites a value that failed quality checks or wasn't reported |
   | `numbers_grounded` | any number in the text doesn't match a usable fact (rounding allowed) |
-  | `no_invented_topics` | it mentions things it wasn't given: forecasts, humidity, cloud, records… |
+  | `high_low_attribution` | "a high of N °C" isn't TMAX, or "a low of N °C" isn't TMIN |
+  | `compass_matches` | it names a wind direction other than the compass point it was given |
+  | `no_false_zero` | "dry", "no rain" or "no snow" when the value was a trace, positive or missing |
   | `no_false_gaps` | it calls a reading missing when the reading was usable |
+  | `no_invented_topics` | things it wasn't given: forecasts, humidity, cloud, hail, sleet, records… |
+  | `names_own_city` | it names another city |
 
-  Plus warnings for unmentioned temperatures, unacknowledged gaps and length.
+  Warnings, recorded but not failing: intensity words the data doesn't support (thresholds in
+  config, after Environment Canada's warning criteria: heavy rain from 25 mm, heavy snow from 15 cm,
+  bitterly cold at −20 °C…), its own city not named, temperatures not mentioned, gaps not
+  acknowledged, length.
 
+- **Hallucinations found, and what changed.** Re-scoring every stored Gemini narrative with the
+  full check list found one real, recurring hallucination: **wrong wind directions in 19 of 103
+  narratives (18%) written with prompt v2**, e.g. 290° written as "NW" (it's W). The model was being
+  asked to convert degrees to compass points, and it gets that arithmetic wrong; the old checks only
+  looked at numbers. The fix moved the conversion out of the model: the compass point is computed in
+  SQL and given as a fact, and `compass_matches` checks it. The other new checks found nothing in
+  the stored narratives (no swapped highs and lows, no false "dry", no other cities, no invented
+  weather types); they guard the paths that remain open.
 - **Evaluation:** `wx eval` runs a prompt on 11 hard cases from the real data (missing temperatures,
   trace rain, a 107 km/h gust, 46 cm of snow in Toronto, quarantined snow values, −28.5 °C, 118 mm of
   rain, a calm day, a trace of snow in Montréal in June) and stores the results for comparison.
-  It drove the current prompt:
+  It drove each version of the prompt:
 
-  | Prompt | Factual checks | Style issues | Length |
+  | Prompt | Factual checks (current validation) | Style issues | Length |
   |---|---|---|---|
-  | `narrative_v1` | 11/11 (but once called present precipitation "missing"; see below) | 18 ("degrees C", "58.0 km/h", template phrasing) | 156 chars |
-  | `narrative_v2` (current) | 11/11 | 0 | 126 chars |
+  | `narrative_v1` | fails `no_false_gaps` once: called present precipitation "missing" | 18 ("degrees C", "58.0 km/h", template phrasing) | 156 chars |
+  | `narrative_v2` | wrong compass points in 6 of 33 evaluated narratives | 0 | 126 chars |
+  | `narrative_v3` (current) | 11/11, every direction correct | 0 | 122 chars |
 
-  Evaluation also found a gap in validation itself: v1 once wrote "temperatures and precipitation
-  were missing" when precipitation was a valid 0 mm, and no check caught it. That's why
-  `no_false_gaps` exists. It also shows the limits of a prompt: on one run v2 left out that
-  Vancouver's temperatures were missing, which `acknowledges_gaps` flags as a warning.
+  v3 still sometimes says "bitterly cold" at −14 °C; `intensity_supported` flags it as a warning,
+  visible in the report. Evaluation also found gaps in validation itself (`no_false_gaps` came from
+  v1's false "missing"), so the checks and the prompt improved together.
 
 ### Observability
 
@@ -292,8 +312,10 @@ results land in `./data` as with a manual run.
   against the ops ledger.
 - **Observability:** feed `ops` into a dashboard and alerts (Grafana, or Elementary for dbt)
   instead of a report; OpenTelemetry traces for LLM calls.
-- **Narratives:** a model-graded score for tone and clarity in evaluation (costs quota, so off by
-  default); a second-pass "repair" when validation fails; per-city monthly summaries.
+- **Narratives:** regenerate a narrative that fails validation (once, with the failed checks in the
+  prompt) instead of only flagging it; a model-graded score for tone and clarity in evaluation
+  (costs quota, so off by default); run `wx eval` automatically when the model list changes;
+  per-city monthly summaries.
 - **Data:** cross-check a sample against Environment Canada's API, which would have caught the old
   files' gust units automatically; NOAA's change history (`status.txt`) surfaced in the health report.
 - **Scale:** partition `fct_observations` by year; move to a client-server warehouse for parallel stages.

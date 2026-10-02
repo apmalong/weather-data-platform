@@ -71,6 +71,13 @@ class Elements(BaseModel):
     display: dict[str, Display] = {}
 
 
+class IntensityRule(BaseModel):
+    pattern: str
+    element: str
+    min: float | None = None
+    max: float | None = None
+
+
 class Narratives(BaseModel):
     provider: str = Field("auto", pattern="^(auto|gemini|mock)$")
     models: list[str] = Field(min_length=1)
@@ -80,6 +87,7 @@ class Narratives(BaseModel):
     requests_per_minute: float = Field(5, gt=0)
     max_requests_per_run: int = Field(30, ge=1)
     temperature: float = 0.3
+    intensity: list[IntensityRule] = []
 
 
 class Quality(BaseModel):

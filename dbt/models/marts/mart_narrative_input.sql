@@ -12,7 +12,12 @@ with facts as (
              -- a value only when usable; "not_reported" gusts are "none notable", not "0 km/h"
              'value': case when d.status in ('valid', 'trace') then round(d.value * e.display_factor, 1) end,
              'unit': e.display_unit,
-             'status': d.status}
+             'status': d.status,
+             -- Direction elements (unit "degrees" in the readme catalog) get their 8-point compass
+             -- point here: models converted degrees to compass points wrongly in ~1 in 8
+             -- narratives (290 -> "NW"), so the conversion isn't left to them.
+             'compass': case when e.unit = 'degrees' and d.status in ('valid', 'trace')
+                             then ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][(round(d.value / 45)::int % 8) + 1] end}
             order by e.is_core desc, d.element
         ) as facts
     from {{ ref('fct_station_day_element') }} d

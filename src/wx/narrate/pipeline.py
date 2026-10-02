@@ -76,12 +76,13 @@ def pending(conn, cfg: Config, model: str, prompt_version: str, days: int) -> li
     return [StationDay(r[0], r[1], r[2], r[3], r[4], json.loads(r[5]), r[6]) for r in rows]
 
 
-def _store(conn, run_id: str, provider: Provider, model: str, prompt_version: str, day: StationDay,
-           draft: dict) -> bool:
-    checks = validate.validate(draft["narrative"], draft.get("cited") or [], day.facts, day.obs_date)
+def _store(conn, run_id: str, provider_name: str, model: str, prompt_version: str, day: StationDay, draft: dict,
+           cfg: Config) -> bool:
+    checks = validate.validate(draft["narrative"], draft.get("cited") or [], day.facts, day.obs_date, day.city,
+                               [c.city for c in cfg.stations.cities], cfg.narratives.intensity)
     ok = validate.passed(checks)
     conn.execute("insert into narratives.daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                 [day.station_id, day.obs_date, day.input_hash, provider.name, model, prompt_version,
+                 [day.station_id, day.obs_date, day.input_hash, provider_name, model, prompt_version,
                   draft["narrative"], json.dumps(draft.get("cited") or []), run_id, ops.now()])
     conn.execute("insert into narratives.validation values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                  [day.station_id, day.obs_date, day.input_hash, model, prompt_version, ok,
@@ -98,12 +99,22 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
     conn = ops.connect(cfg.warehouse)
     conn.execute(DDL)
     summary = {"provider": provider.name, "prompt_version": prompt_version, "generated": 0, "passed": 0,
-               "failed_validation": 0, "missing_from_response": 0, "requests": 0, "deferred": 0}
+               "failed_validation": 0, "missing_from_response": 0, "requests": 0, "deferred": 0,
+               "no_data": 0}
     try:
         with ops.run(conn, "narrate") as (run_id, details):
             todo = pending(conn, cfg, provider.model, prompt_version, days or n.days)
             summary["pending"] = len(todo)
             log.info("%d station-days need a narrative (%s, %s)", len(todo), provider.model, prompt_version)
+            # Nothing usable to describe: write a fixed sentence rather than invite the model to invent one.
+            for day in [d for d in todo if validate.nothing_to_report(d.facts)]:
+                draft = {"narrative": f"No temperature or precipitation readings were available for {day.city} "
+                                      f"on {day.obs_date}.", "cited": []}
+                ok = _store(conn, run_id, "rule", provider.model, prompt_version, day, draft, cfg)
+                summary["no_data"] += 1
+                summary["generated"] += 1
+                summary["passed" if ok else "failed_validation"] += 1
+            todo = [d for d in todo if not validate.nothing_to_report(d.facts)]
             interval, last_start = 60.0 / n.requests_per_minute, 0.0
             for call_no, start in enumerate(range(0, len(todo), n.batch_size), 1):
                 batch = todo[start:start + n.batch_size]
@@ -136,7 +147,7 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
                         summary["missing_from_response"] += 1
                         continue
                     summary["generated"] += 1
-                    ok = _store(conn, run_id, provider, call.model, prompt_version, day, draft)
+                    ok = _store(conn, run_id, provider.name, call.model, prompt_version, day, draft, cfg)
                     summary["passed" if ok else "failed_validation"] += 1
                 _log_call(conn, run_id, call_no, provider, call.model, prompt_version, batch, call, last_start, "ok")
             details.update(summary)
