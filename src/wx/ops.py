@@ -34,10 +34,26 @@ def now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)  # the warehouse stores naive UTC
 
 
+class WarehouseLocked(RuntimeError):
+    pass
+
+
+# How another process's lock on the file reads, by platform: DuckDB's own lock (Linux, macOS),
+# Windows' sharing violation, and a Windows lock seen through a Docker bind mount.
+_LOCKED = ("could not set lock", "being used by another process", "permission denied")
+
+
 def connect(path) -> duckdb.DuckDBPyConnection:
     if str(path) != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)  # data/ is git-ignored: absent on a fresh clone
-    conn = duckdb.connect(str(path))
+    try:
+        conn = duckdb.connect(str(path))
+    except duckdb.IOException as exc:
+        if any(text in str(exc).lower() for text in _LOCKED):
+            raise WarehouseLocked(f"{path} is open in another process (DuckDB allows one writer): stop "
+                                  f"`wx --explore`, a DuckDB UI or CLI, or another pipeline run, then retry. "
+                                  f"DuckDB said: {str(exc).splitlines()[0]}") from exc
+        raise
     conn.execute("set TimeZone = 'UTC'")
     conn.execute(DDL)
     return conn

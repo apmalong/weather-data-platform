@@ -1,3 +1,8 @@
+import subprocess
+import sys
+
+import pytest
+
 from wx import ops
 
 
@@ -27,3 +32,18 @@ def test_read_connection_coexists_with_a_writer_in_the_same_process(tmp_path):
     assert reader.execute("select count(*) from ops.runs").fetchone() == (0,)
     reader.close()
     writer.close()
+
+
+def test_a_warehouse_open_elsewhere_says_so(tmp_path):
+    """Another process holding the file (wx --explore, the DuckDB CLI) gets a message saying what to do."""
+    path = tmp_path / "wh.duckdb"
+    ops.connect(path).close()
+    holder = subprocess.Popen([sys.executable, "-c", f"import duckdb, sys; c = duckdb.connect(r'{path}'); "
+                               "print('ready', flush=True); sys.stdin.read()"],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    try:
+        assert holder.stdout.readline().strip() == "ready"
+        with pytest.raises(ops.WarehouseLocked, match="open in another process"):
+            ops.connect(path)
+    finally:
+        holder.communicate("")

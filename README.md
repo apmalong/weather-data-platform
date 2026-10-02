@@ -357,6 +357,15 @@ daily at 12:00 UTC, one run at a time (DuckDB has one writer). Each task runs th
 so Airflow adds scheduling, retries and history without a second code path. The repo is mounted, so
 results land in `./data` as with a manual run.
 
+Tested on 2026-10-02 (Airflow 3.3.2, Docker Desktop): two DAG runs back to back, both green. The
+first took about 70 seconds. The second found no changed files and no narratives to write, so it
+made no Gemini calls. Unpausing the DAG starts the latest scheduled run at once (`catchup=False`
+still runs the most recent interval).
+
+While a run is going, nothing else can open `data/warehouse.duckdb`, and Airflow's tasks fail if
+something else has it open, including `wx --explore` or a DuckDB CLI on the host. The error says
+so, and the task retries.
+
 ## Tradeoffs
 
 - **One DuckDB file, one writer.** Simple and free, and the dataset is small (220,000 rows for five

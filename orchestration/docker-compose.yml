@@ -3,6 +3,10 @@
 #   http://localhost:8080   (no login locally)
 # The repo is mounted at /opt/wx, so the warehouse and downloads land in ./data like a manual run.
 # GEMINI_API_KEY is read from ./.env; without it narratives use the offline mock.
+# An explicit project name: Compose otherwise uses the folder name (`orchestration`), and would
+# treat another project's compose file in a folder of the same name as this one.
+name: weather-data-platform
+
 services:
   airflow:
     build:
