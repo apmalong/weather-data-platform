@@ -1,0 +1,30 @@
+# Optional: run the pipeline on a daily schedule in Airflow (standalone: one container).
+#   docker compose -f orchestration/docker-compose.yml up -d --build
+#   http://localhost:8080   (no login locally)
+# The repo is mounted at /opt/wx, so the warehouse and downloads land in ./data like a manual run.
+# GEMINI_API_KEY is read from ./.env; without it narratives use the offline mock.
+services:
+  airflow:
+    build:
+      context: ..
+      dockerfile: orchestration/Dockerfile
+    command: standalone
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/wx/orchestration/dags
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+      WX_DATA_DIR: /opt/wx/data
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+    volumes:
+      - ../src:/opt/wx/src:ro                 # editable install: code changes need no rebuild
+      - ../config:/opt/wx/config:ro
+      - ../dbt:/opt/wx/dbt
+      - ../prompts:/opt/wx/prompts:ro
+      - ../evals:/opt/wx/evals:ro
+      - ../orchestration/dags:/opt/wx/orchestration/dags:ro
+      - ../data:/opt/wx/data
+    ports: ["8080:8080"]

@@ -4,6 +4,7 @@
     wx transform    dbt build: models and data-quality tests
     wx narrate      daily narratives with Gemini (or the offline mock), validated against the data
     wx eval         score a narrative prompt/model on the hard cases in evals/cases.yml
+    wx health       one report on every stage: runs, checks, dbt tests, data quality, narratives
     wx run          ingest, transform, narrate
 """
 import argparse
@@ -64,6 +65,19 @@ def _eval(args, cfg) -> None:
           f"{result['input_tokens']}+{result['output_tokens']} tokens")
 
 
+def _health(args, cfg) -> None:
+    from pathlib import Path
+
+    from wx import health
+    report = health.build(cfg)
+    text = report.markdown()
+    print(text)
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8", newline="\n")
+    if args.strict and report.status == "ERROR":
+        sys.exit(1)
+
+
 def _run(args, cfg) -> None:
     args.force = False
     args.full_refresh = False
@@ -88,6 +102,9 @@ def main(argv: list[str] | None = None) -> None:
     evaluation = commands.add_parser("eval", help="score a prompt/model on evals/cases.yml")
     evaluation.add_argument("--prompt", help="prompt file to evaluate (default: narratives.prompt)")
     evaluation.add_argument("--provider", choices=["auto", "gemini", "mock"])
+    health = commands.add_parser("health", help="report on every stage from the ops ledger and marts")
+    health.add_argument("--out", help="also write the report to this Markdown file")
+    health.add_argument("--strict", action="store_true", help="exit 1 when the status is ERROR")
     commands.add_parser("run", help="ingest, transform, narrate")
     args = parser.parse_args(argv)
 
@@ -97,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
     cfg = config.load()
     try:
         commands_by_name = {"ingest": _ingest, "transform": _transform, "narrate": _narrate, "eval": _eval,
-                            "run": _run}
+                            "health": _health, "run": _run}
         commands_by_name[args.command](args, cfg)
     except Exception as exc:  # one clear line for operators; the traceback is in -v and ops.runs
         logging.getLogger("wx").error("%s failed: %s", args.command, exc, exc_info=args.verbose)

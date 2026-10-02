@@ -1,0 +1,34 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Proves the README's reproduction steps on a clean machine: install from the lockfile, lint, unit
+# tests, then the whole pipeline against live NOAA data. No GEMINI_API_KEY is configured, so
+# narratives use the offline mock provider; the connector's Gemini paths are covered by unit tests
+# with a fake client.
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run pytest
+      - name: Pipeline end to end (ingest, dbt build with tests, narratives with validation)
+        run: uv run wx run
+      - name: Health report
+        run: uv run wx health --out health_report.md
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: health-report
+          path: health_report.md
+          if-no-files-found: ignore
