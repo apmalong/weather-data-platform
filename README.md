@@ -176,6 +176,28 @@ pivot is generated from the warehouse at build time.
 The fixed-width layouts are also checked against the readme: before parsing anything, ingest reads
 the column tables in the downloaded readme and stops if NOAA has changed a layout.
 
+### Data cleaning: from NOAA's files to usable values
+
+What's wrong with the raw data, what the pipeline does about it, and where:
+
+| In the raw data | What we do | Where |
+|---|---|---|
+| Two IDs per Canadian station since v3.35; the old `CA0` files stopped updating in April 2024 | Resolve stations to the current `CAN0` IDs from the metadata | `wx ingest` (resolve) |
+| Fixed-width reference files | Parse with column positions read from NOAA's readme; stop if the readme's layouts change | `wx ingest` (load) |
+| Malformed observation rows | Read everything as text; count rejected rows instead of failing the load | `wx ingest` (load) |
+| Rows for another station, or a station/date/element twice | Keep one row per station/date/element and record how many were dropped | `wx ingest` (load) |
+| Dates and values as text; sentinels like elevation `-999.9` | Cast with `try_cast`: anything that doesn't parse becomes `unparseable`, not a failed build; sentinels become null | staging |
+| Values in tenths (°C ×10, mm ×10) | Scale from the readme's element definitions, at fixed precision (`decimal(12,1)`) so there's no float noise | `int_observations__assessed` |
+| NOAA quality flags; physically impossible values | Mark them `qc_failed` or `out_of_bounds` (bounds in config); keep the raw value but exclude it from usable values | `int_observations__assessed` |
+| Trace amounts stored as 0 | Keep 0 but give them the status `trace`, so they never read as "none" | `int_observations__assessed` |
+| Days with no row at all | Build a full station × day × element grid, so every absence is a row: `missing`, `not_reported` (counted as 0 for gusts and snow depth, per config) or `not_expected` | `fct_station_day_element` |
+| Rows NOAA revises or removes | Updated in place and logged; removed rows are marked `removed_at_source` instead of deleted | `fct_observations` |
+| Metric units that are awkward to read (m/s, mm of snow) | Convert to km/h and cm only for display, from config | marts and report |
+
+**What we don't do:** fill missing days by interpolation, borrow values from a nearby station, or
+correct values NOAA flagged. Each would give the narratives a number nobody measured. A gap stays
+a gap, labelled with its reason, and the completeness report counts it.
+
 ### Data quality: detect, quarantine, measure, surface
 
 | Layer | What is checked |
