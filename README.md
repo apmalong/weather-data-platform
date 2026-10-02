@@ -12,6 +12,23 @@ command turns into a health report.
 [![ci](https://github.com/apmalong/weather-data-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/apmalong/weather-data-platform/actions/workflows/ci.yml)
 CI runs the whole pipeline against live NOAA data on every push, from a clean checkout.
 
+## Who this is for
+
+NOAA's daily records are reliable but hard to use: one fixed-width file per station, coded
+elements in tenths of units, quality flags that are easy to miss, and gaps that look like zeros.
+
+- **People who want a plain daily summary**, such as an operations manager with sites in several
+  cities or a regional news desk: "Calgary had 15 cm of snow and a low of -22 °C." They can't check
+  the source, so the narratives have to be short and correct. That's why every narrative is
+  validated against the data, and repaired or flagged when it fails.
+- **Analysts** who want clean, tested daily weather by city to join with their own data (sales,
+  staffing, energy, deliveries). The marts are for them, with data quality and freshness measured
+  so they can tell when the gap is in the weather data, not in their own.
+
+It is not a forecast (NOAA's daily data arrives 1–3 days late) and not hyperlocal (one airport
+station per metro area), and the narratives describe the weather, never its effects. Success means
+correct narratives, ready by the next morning, with data tests passing and core elements complete.
+
 ## Quick start
 
 You need [uv](https://docs.astral.sh/uv/getting-started/installation/) (it installs Python 3.12 for
