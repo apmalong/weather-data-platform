@@ -43,6 +43,15 @@ def connect(path) -> duckdb.DuckDBPyConnection:
     return conn
 
 
+def connect_read(path) -> duckdb.DuckDBPyConnection:
+    """Read-only access for reports. Within one process DuckDB refuses a read-only connection to a
+    file another connection already holds read-write (dbt's, after `wx run`), so fall back to that."""
+    try:
+        return duckdb.connect(str(path), read_only=True)
+    except duckdb.ConnectionException:
+        return duckdb.connect(str(path))
+
+
 @contextmanager
 def run(conn: duckdb.DuckDBPyConnection, command: str):
     """Record a pipeline run; yields its id and a dict for details to store with it."""

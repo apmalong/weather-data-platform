@@ -11,8 +11,7 @@ warnings, rejected rows, narratives deferred by the free tier's quota).
 import json
 from dataclasses import dataclass, field
 
-import duckdb
-
+from wx import ops
 from wx.config import Config
 
 
@@ -51,7 +50,7 @@ def _has(conn, schema: str, table: str) -> bool:
 
 def build(cfg: Config) -> Report:
     r = Report()
-    conn = duckdb.connect(str(cfg.warehouse), read_only=True)
+    conn = ops.connect_read(cfg.warehouse)
     try:
         _runs(conn, r)
         _ingest(conn, r, cfg)

@@ -12,9 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-import duckdb
-
-from wx import health
+from wx import health, ops
 from wx.config import Config
 
 TEMPLATE = Path(__file__).with_name("report_template.html")
@@ -43,7 +41,7 @@ def _json_default(value):
 
 def collect(cfg: Config) -> dict:
     report = health.build(cfg)
-    conn = duckdb.connect(str(cfg.warehouse), read_only=True)
+    conn = ops.connect_read(cfg.warehouse)
     try:
         data = {
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
