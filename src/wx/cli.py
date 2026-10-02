@@ -7,6 +7,7 @@
     wx health       one report on every stage: runs, checks, dbt tests, data quality, narratives
     wx report       one HTML page with the results: weather, data quality, narratives, evaluation, ops
     wx run          ingest, transform, narrate, report
+    wx reset        start over: the warehouse (default), everything (--all) or narratives only
 """
 import argparse
 import logging
@@ -87,6 +88,27 @@ def _report(args, cfg) -> None:
     print(f"report written to {path.resolve()}")
 
 
+def _reset(args, cfg) -> None:
+    from wx import reset
+    what = reset.describe(cfg, args.all, args.narratives)
+    if not what:
+        print("Nothing to reset.")
+        return
+    print(f"This removes:\n{what}" if not args.narratives else f"This removes {what}.")
+    if not args.yes:
+        if not sys.stdin.isatty():
+            sys.exit("Not removing anything: confirm with --yes when not running interactively.")
+        try:
+            answer = input("Continue? [y/N] ")
+        except EOFError:  # no input after all (some shells report a terminal that isn't one)
+            answer = ""
+        if answer.strip().lower() not in ("y", "yes"):
+            print("Nothing removed.")
+            return
+    removed = reset.reset(cfg, everything=args.all, narratives=args.narratives)
+    print(f"Removed {len(removed)} item(s). `wx run` rebuilds.")
+
+
 def _run(args, cfg) -> None:
     args.force = False
     args.full_refresh = False
@@ -119,6 +141,11 @@ def main(argv: list[str] | None = None) -> None:
     rep = commands.add_parser("report", help="write the results as one HTML page")
     rep.add_argument("--out", help="output file (default: data/report.html)")
     commands.add_parser("run", help="ingest, transform, narrate, report")
+    reset_cmd = commands.add_parser("reset", help="remove what the pipeline built, to start over")
+    scope = reset_cmd.add_mutually_exclusive_group()
+    scope.add_argument("--all", action="store_true", help="also the downloaded NOAA files and the report")
+    scope.add_argument("--narratives", action="store_true", help="only the narrative cache")
+    reset_cmd.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -127,7 +154,8 @@ def main(argv: list[str] | None = None) -> None:
     cfg = config.load()
     try:
         commands_by_name = {"ingest": _ingest, "transform": _transform, "narrate": _narrate, "eval": _eval,
-                            "health": _health, "report": _report, "run": _run}
+                            "health": _health, "report": _report, "run": _run,
+                            "reset": _reset}
         commands_by_name[args.command](args, cfg)
     except Exception as exc:  # one clear line for operators; the traceback is in -v and ops.runs
         logging.getLogger("wx").error("%s failed: %s", args.command, exc, exc_info=args.verbose)

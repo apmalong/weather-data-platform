@@ -41,6 +41,7 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | `wx health` | One report: runs, checks, dbt tests, data quality, NOAA's revisions, narratives, evaluation. `--strict` exits 1 on errors |
 | `wx report` | Writes `data/report.html`: one self-contained page, data embedded, nothing to install or serve |
 | `wx run` | `ingest`, `transform`, `narrate`, `report` |
+| `wx reset` | Start over: the warehouse (keeps downloads); `--all` also the downloads and report, like a fresh clone; `--narratives` only the narrative cache. Asks first unless `--yes` |
 
 Everything lands in one DuckDB file, `data/warehouse.duckdb`. Open it with the DuckDB CLI or any
 SQL client, for example:
