@@ -1,0 +1,59 @@
+# The only file to edit to change what the pipeline covers. Adding a city is one entry under
+# `cities`: the station is resolved from NOAA's metadata, its elements come from the inventory,
+# and dbt and the narratives pick it up without code or SQL changes.
+
+source:
+  base_url: https://www.ncei.noaa.gov/pub/data/ghcn/daily
+  # Reference files, all loaded into the warehouse (requirement 2).
+  reference_files:
+    stations: ghcnd-stations.txt
+    inventory: ghcnd-inventory.txt
+    countries: ghcnd-countries.txt
+    states: ghcnd-states.txt
+    readme: readme.txt
+    status: status.txt          # NOAA's change log; explains revisions like v3.35's new Canadian IDs
+
+# Dates covered downstream of raw. Raw keeps each station's full history as published.
+window:
+  last_days: 730                # two years back from today; or set `start` / `end` (YYYY-MM-DD) instead
+
+stations:
+  country: CA
+  # How a city's station is chosen from ghcnd-stations.txt and ghcnd-inventory.txt.
+  selection:
+    airport_name_pattern: ' A$'          # Environment Canada names airport stations "<NAME> A"
+    preferred_name_pattern: "INT'?L"     # among airports, prefer the international one
+    required_elements: [TMAX, TMIN, PRCP]  # must be reported across the whole window
+  # Quote province codes: YAML reads a bare ON as the boolean true.
+  cities:
+    - {city: Toronto, province: 'ON'}
+    - {city: Montreal, province: 'QC'}
+    - {city: Vancouver, province: 'BC'}
+    - {city: Calgary, province: 'AB'}
+    - {city: Ottawa, province: 'ON'}
+    # Optional per city: name_prefix (defaults to the city in capitals, accents removed) and
+    # station_id to pin a station; a pinned ID must still exist in the metadata.
+
+elements:
+  # Which elements flow downstream: those the selected stations report in the inventory, that the
+  # readme defines, minus any excluded here.
+  exclude: []
+  # How to read an element that is absent on a day. Environment Canada only reports a gust above
+  # about 31 km/h and snow depth when there is snow, so absence means "nothing to report", not
+  # missing data. Everything else defaults to missing.
+  absent_means_zero: [WDFG, WSFG, SNWD]
+  # Physical bounds in real units (after scaling), checked in dbt. Values outside are quarantined.
+  bounds:
+    TMAX: [-60, 50]
+    TMIN: [-60, 50]
+    TAVG: [-60, 50]
+    PRCP: [0, 500]
+    SNOW: [0, 1000]
+    SNWD: [0, 5000]
+    WSFG: [0, 100]
+    WDFG: [0, 360]
+
+quality:
+  freshness_warn_days: 7        # latest observation older than this: warning
+  freshness_error_days: 30      # ... older than this: error, narratives are not generated
+  volume_change_warn_pct: 20    # rows per station changed by more than this between loads
