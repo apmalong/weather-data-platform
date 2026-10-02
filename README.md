@@ -219,6 +219,12 @@ and which element it came from.
   - **Graders' keys:** the same code path runs with any key. Without one it uses the mock.
 - **Nothing to describe, nothing to invent:** a day with no usable temperature or precipitation gets
   a fixed "No readings were available" sentence instead of a model call.
+- **One repair attempt:** a narrative that fails validation goes back to the model once, in a batch
+  with the other failures, each with its previous text and the exact checks it failed. The failed
+  first attempt is kept as history; the repair becomes current if it passes, and stays flagged if
+  it doesn't. Failures from earlier runs (or a run whose quota ran out) are repaired by the next
+  one. In practice: one production narrative cited `TMAX = 0.0` for a missing temperature while its
+  text was right; one repair request fixed it, and all 70 current narratives pass.
 - **Validation** (the bonus "compare narratives against source data"), on every narrative before
   it's stored. A failed check fails the narrative:
 
@@ -312,10 +318,8 @@ results land in `./data` as with a manual run.
   against the ops ledger.
 - **Observability:** feed `ops` into a dashboard and alerts (Grafana, or Elementary for dbt)
   instead of a report; OpenTelemetry traces for LLM calls.
-- **Narratives:** regenerate a narrative that fails validation (once, with the failed checks in the
-  prompt) instead of only flagging it; a model-graded score for tone and clarity in evaluation
-  (costs quota, so off by default); run `wx eval` automatically when the model list changes;
-  per-city monthly summaries.
+- **Narratives:** a model-graded score for tone and clarity in evaluation (costs quota, so off by
+  default); run `wx eval` automatically when the model list changes; per-city monthly summaries.
 - **Data:** cross-check a sample against Environment Canada's API, which would have caught the old
   files' gust units automatically; NOAA's change history (`status.txt`) surfaced in the health report.
 - **Scale:** partition `fct_observations` by year; move to a client-server warehouse for parallel stages.

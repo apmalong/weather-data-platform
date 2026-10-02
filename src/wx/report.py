@@ -89,13 +89,13 @@ def collect(cfg: Config) -> dict:
         if _has(conn, "narratives", "latest"):
             data["narratives"] = _rows(conn, """
                 select s.city, n.obs_date as date, n.narrative, n.provider, n.model, n.prompt_version, n.passed,
-                       n.failed_checks, n.warnings, n.cited, i.facts, v.checks
+                       n.attempt, n.failed_checks, n.warnings, n.cited, i.facts, v.checks
                 from narratives.latest n
                 join marts.dim_station s on s.station_id = n.station_id
                 left join marts.mart_narrative_input i on i.station_id = n.station_id and i.obs_date = n.obs_date
                 left join narratives.validation v
                     on v.station_id = n.station_id and v.obs_date = n.obs_date and v.input_hash = n.input_hash
-                   and v.model = n.model and v.prompt_version = n.prompt_version
+                   and v.model = n.model and v.prompt_version = n.prompt_version and v.attempt = n.attempt
                 order by n.obs_date desc, s.city""")
             data["llm_calls"] = _rows(conn, """select run_id, call_no, model, prompt_version, station_days, returned,
                                                       input_tokens, output_tokens, round(seconds, 1) as seconds,

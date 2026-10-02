@@ -87,6 +87,7 @@ class Narratives(BaseModel):
     requests_per_minute: float = Field(5, gt=0)
     max_requests_per_run: int = Field(30, ge=1)
     temperature: float = 0.3
+    repair_attempts: int = Field(1, ge=0, le=1)
     intensity: list[IntensityRule] = []
 
 

@@ -1,7 +1,6 @@
 # Pipeline health
 
-**Status: ERROR**
-- error: 1 current narratives failed validation
+**Status: OK**
 
 ## Latest run of each stage
 
@@ -9,7 +8,7 @@
 |---|---|---|---|---|
 | ingest | success | 2026-10-02 18:16:21 | 13.0 |  |
 | transform | success | 2026-10-02 18:28:51 | 5.0 |  |
-| narrate | success | 2026-10-02 18:32:53 | 77.0 |  |
+| narrate | success | 2026-10-02 18:47:07 | 1.0 |  |
 
 ## Ingest (20261002T181621-c0f10e)
 
@@ -17,11 +16,11 @@
 
 | city | station | candidates considered | why it won |
 |---|---|---|---|
+| Vancouver | CAN01108395 VANCOUVER INTL A | 43 | selected |
+| Montreal | CAN07025251 MONTREAL INTL A | 16 | selected |
 | Calgary | CAN03031092 CALGARY INTL A | 39 | selected |
 | Toronto | CAN06158731 TORONTO INTL A | 91 | selected |
 | Ottawa | CAN06106001 OTTAWA INTL A | 25 | selected |
-| Montreal | CAN07025251 MONTREAL INTL A | 16 | selected |
-| Vancouver | CAN01108395 VANCOUVER INTL A | 43 | selected |
 
 What NOAA changed in the most recent load that changed anything (revisions and removals of past dates count as historical):
 
@@ -47,14 +46,10 @@ What NOAA changed in the most recent load that changed anything (revisions and r
 | Toronto | 0.9986 | SNOW | 1 | 236 | 0 | 2026-09-29 | fresh |
 | Vancouver | 0.9451 | TAVG | 128 | 62 | 0 | 2026-09-29 | fresh |
 
-## Narratives (20261002T183253-b21dc5)
+## Narratives (20261002T184707-fadab2)
 
-Latest run: 7 requests for 70 station-days on gemini-3.5-flash-lite, 33152+12736 tokens, 5.5 s per request, 0 retries, 0 failed requests.
-Current narratives: 70 station-days from 2026-09-16 to 2026-09-29 (gemini gemini-3.5-flash-lite), 69 passed validation.
-
-| city | date | failed checks | narrative |
-|---|---|---|---|
-| Vancouver | 2026-09-16 | cited_values_match, cited_only_usable | Vancouver temperatures were missing for the day, but conditions stayed dry with gusts from the W reaching 32 km/h. |
+Latest run: 1 requests for 1 station-days on gemini-3.5-flash-lite, 1489+119 tokens, 1.1 s per request, 0 retries, 0 failed requests.
+Current narratives: 70 station-days from 2026-09-16 to 2026-09-29 (gemini gemini-3.5-flash-lite), 70 passed validation.
 
 Evaluation on evals/cases.yml, latest run per prompt version:
 

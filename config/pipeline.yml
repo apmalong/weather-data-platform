@@ -74,6 +74,9 @@ narratives:
   requests_per_minute: 5
   max_requests_per_run: 30
   temperature: 0.3
+  # A narrative that fails validation goes back to the model once, with its problems listed; if it
+  # still fails it's kept, flagged. 0 disables. Costs one extra request per batch of failures.
+  repair_attempts: 1
   # Intensity words a narrative may use only when the data supports them, checked as warnings.
   # Thresholds follow Environment Canada's warning criteria where one exists (rainfall 25-50 mm,
   # snowfall 15 cm, wind gusts 70-90 km/h in 24 h, depending on region), set at the lower end.

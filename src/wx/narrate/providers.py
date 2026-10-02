@@ -52,10 +52,12 @@ class StationDay:
     obs_date: str
     facts: list[dict]
     input_hash: str
+    feedback: dict | None = None  # a repair request: the previous recap and what was wrong with it
 
     def payload(self) -> dict:
         return {"station_id": self.station_id, "city": f"{self.city}, {self.province}",
-                "station": self.station_name, "date": self.obs_date, "facts": self.facts}
+                "station": self.station_name, "date": self.obs_date, "facts": self.facts,
+                **(self.feedback or {})}
 
 
 @dataclass
