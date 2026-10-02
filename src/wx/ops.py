@@ -5,6 +5,7 @@ import json
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 
 import duckdb
 
@@ -34,6 +35,8 @@ def now() -> datetime:
 
 
 def connect(path) -> duckdb.DuckDBPyConnection:
+    if str(path) != ":memory:":
+        Path(path).parent.mkdir(parents=True, exist_ok=True)  # data/ is git-ignored: absent on a fresh clone
     conn = duckdb.connect(str(path))
     conn.execute("set TimeZone = 'UTC'")
     conn.execute(DDL)
