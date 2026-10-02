@@ -52,6 +52,26 @@ elements:
     SNWD: [0, 5000]
     WSFG: [0, 100]
     WDFG: [0, 360]
+  # Units for narratives, converted from the readme's units: value * factor.
+  display:
+    WSFG: {unit: km/h, factor: 3.6}
+    SNOW: {unit: cm, factor: 0.1}
+    SNWD: {unit: cm, factor: 0.1}
+
+narratives:
+  provider: auto                # gemini when GEMINI_API_KEY is set, otherwise the offline mock
+  # Tried in order; a model retired for the key (404 NOT_FOUND) falls through to the next.
+  # gemini-2.5-flash(-lite) were already retired for new keys in October 2026.
+  models: [gemini-3.5-flash-lite, gemini-flash-lite-latest, gemini-flash-latest]
+  prompt: prompts/narrative_v1.md
+  days: 14                      # most recent days with data, per station
+  batch_size: 10                # station-days per request
+  # Free-tier limits are per project, shown only in AI Studio, and change; these stay well under
+  # them. A 429 waits the delay the API asks for; an exhausted daily quota stops the run cleanly
+  # and the next run resumes, because narratives are cached by input.
+  requests_per_minute: 5
+  max_requests_per_run: 30
+  temperature: 0.3
 
 quality:
   freshness_warn_days: 7        # latest observation older than this: warning

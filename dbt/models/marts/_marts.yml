@@ -64,3 +64,11 @@ models:
     columns:
       - name: element
         data_tests: [unique, not_null]
+
+  - name: mart_narrative_input
+    description: One fact sheet (JSON) per station and day for the narrative pipeline, with an input fingerprint.
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, obs_date]}}
+    columns:
+      - name: input_hash
+        data_tests: [not_null]

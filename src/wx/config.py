@@ -59,10 +59,27 @@ class Stations(BaseModel):
     cities: list[City] = Field(min_length=1)
 
 
+class Display(BaseModel):
+    unit: str
+    factor: float
+
+
 class Elements(BaseModel):
     exclude: list[str] = []
     absent_means_zero: list[str] = []
     bounds: dict[str, tuple[float, float]] = {}
+    display: dict[str, Display] = {}
+
+
+class Narratives(BaseModel):
+    provider: str = Field("auto", pattern="^(auto|gemini|mock)$")
+    models: list[str] = Field(min_length=1)
+    prompt: Path
+    days: int = Field(14, ge=1)
+    batch_size: int = Field(10, ge=1, le=50)
+    requests_per_minute: float = Field(5, gt=0)
+    max_requests_per_run: int = Field(30, ge=1)
+    temperature: float = 0.3
 
 
 class Quality(BaseModel):
@@ -76,6 +93,7 @@ class Config(BaseModel):
     window: Window
     stations: Stations
     elements: Elements = Elements()
+    narratives: Narratives
     quality: Quality = Quality()
 
     @cached_property

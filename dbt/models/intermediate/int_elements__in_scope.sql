@@ -11,12 +11,15 @@ with reported as (
 select
     e.element,
     e.description,
+    regexp_replace(e.description, '\s*[(\[].*$', '') as label,   -- "Maximum temperature (tenths of degrees C)"
     e.unit,
     e.scale,
     e.is_core,
     coalesce(p.absent_means_zero, false) as absent_means_zero,
     p.lower_bound,
     p.upper_bound,
+    coalesce(p.display_unit, e.unit) as display_unit,
+    coalesce(p.display_factor, 1) as display_factor,
     md5(concat_ws('|', e.scale, coalesce(p.absent_means_zero, false), p.lower_bound, p.upper_bound)) as policy_hash
 from reported r
 join {{ ref('stg_ghcnd__elements') }} e on e.element = r.element and e.is_exact_code

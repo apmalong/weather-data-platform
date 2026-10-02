@@ -2,13 +2,25 @@
 
     wx ingest       download NOAA files, resolve stations, load raw
     wx transform    dbt build: models and data-quality tests
-    wx run          ingest, then transform
+    wx narrate      daily narratives with Gemini (or the offline mock), validated against the data
+    wx run          ingest, transform, narrate
 """
 import argparse
 import logging
+import os
 import sys
 
 from wx import config
+
+
+def load_dotenv(path=config.ROOT / ".env") -> None:
+    """KEY=value lines from .env into the environment, without overriding what's already set."""
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def _ingest(args, cfg) -> None:
@@ -23,12 +35,23 @@ def _transform(args, cfg) -> None:
     print(f"transform {result['run_id']}: {result['statuses']}")
 
 
+def _narrate(args, cfg) -> None:
+    from wx.narrate import pipeline
+    if getattr(args, "provider", None):
+        cfg.narratives.provider = args.provider
+    result = pipeline.run(cfg, days=getattr(args, "days", None))
+    print(f"narrate {result['run_id']}: {result['generated']} generated ({result['passed']} passed validation, "
+          f"{result['failed_validation']} failed) with {result['provider']} in {result['requests']} requests; "
+          f"{result['deferred']} deferred")
+
+
 def _run(args, cfg) -> None:
     args.force = False
     args.full_refresh = False
     args.select = None
     _ingest(args, cfg)
     _transform(args, cfg)
+    _narrate(args, cfg)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -40,14 +63,18 @@ def main(argv: list[str] | None = None) -> None:
     transform = commands.add_parser("transform", help="dbt build: models and data-quality tests")
     transform.add_argument("--full-refresh", action="store_true", help="rebuild incremental models from raw")
     transform.add_argument("--select", help="dbt node selection, e.g. marts")
-    commands.add_parser("run", help="ingest, then transform")
+    narrate = commands.add_parser("narrate", help="daily narratives, validated against the data")
+    narrate.add_argument("--days", type=int, help="override narratives.days")
+    narrate.add_argument("--provider", choices=["auto", "gemini", "mock"], help="override narratives.provider")
+    commands.add_parser("run", help="ingest, transform, narrate")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stderr)
+    load_dotenv()
     cfg = config.load()
     try:
-        {"ingest": _ingest, "transform": _transform, "run": _run}[args.command](args, cfg)
+        {"ingest": _ingest, "transform": _transform, "narrate": _narrate, "run": _run}[args.command](args, cfg)
     except Exception as exc:  # one clear line for operators; the traceback is in -v and ops.runs
         logging.getLogger("wx").error("%s failed: %s", args.command, exc, exc_info=args.verbose)
         sys.exit(1)

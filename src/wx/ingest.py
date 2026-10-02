@@ -71,12 +71,14 @@ def _publish_config(conn, cfg: Config, stations: list[resolve.Station], start: d
     conn.execute("insert into config.quality values (?, ?, ?)",
                  [q.freshness_warn_days, q.freshness_error_days, q.volume_change_warn_pct])
     e = cfg.elements
-    codes = sorted(set(e.exclude) | set(e.absent_means_zero) | set(e.bounds))
+    codes = sorted(set(e.exclude) | set(e.absent_means_zero) | set(e.bounds) | set(e.display))
     conn.execute("create or replace table config.elements (element varchar, excluded boolean, "
-                 "absent_means_zero boolean, lower_bound double, upper_bound double)")
-    conn.executemany("insert into config.elements values (?, ?, ?, ?, ?)",
-                     [[c, c in e.exclude, c in e.absent_means_zero, *(e.bounds.get(c) or (None, None))]
-                      for c in codes])
+                 "absent_means_zero boolean, lower_bound double, upper_bound double, display_unit varchar, "
+                 "display_factor double)")
+    conn.executemany("insert into config.elements values (?, ?, ?, ?, ?, ?, ?)",
+                     [[c, c in e.exclude, c in e.absent_means_zero, *(e.bounds.get(c) or (None, None)),
+                       e.display[c].unit if c in e.display else None,
+                       e.display[c].factor if c in e.display else None] for c in codes])
 
 
 def run(cfg: Config, force: bool = False, today: date | None = None) -> dict:

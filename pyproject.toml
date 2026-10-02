@@ -10,6 +10,7 @@ dependencies = [
     "dbt-duckdb==1.11.0",
     "pydantic>=2.8",
     "pyyaml>=6.0",
+    "google-genai>=1.0",
 ]
 
 [project.scripts]
