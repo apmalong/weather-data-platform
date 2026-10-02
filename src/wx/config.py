@@ -39,6 +39,7 @@ class City(BaseModel):
     province: str
     name_prefix: str | None = None
     station_id: str | None = None
+    country: str | None = None  # defaults to stations.country
 
     @property
     def prefix(self) -> str:
@@ -51,6 +52,7 @@ class Selection(BaseModel):
     airport_name_pattern: str
     preferred_name_pattern: str
     required_elements: list[str]
+    max_distance_km: float = Field(5, gt=0, le=25)
 
 
 class Stations(BaseModel):

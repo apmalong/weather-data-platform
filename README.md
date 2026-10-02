@@ -129,22 +129,40 @@ cities:
   ...
 ```
 
-For each city, `wx ingest` searches `ghcnd-stations.txt` for stations in that province whose name
-starts with the city, then applies four rules:
+For each city, `wx ingest` searches `ghcnd-stations.txt` for stations in that province (or US
+state) whose name starts with the city, then picks a station in two steps:
 
-1. **An airport:** the name matches `' A$'`, Environment Canada's convention for airport stations.
-   That excludes, for example, `CALGARY INT'L CS`, a climate station.
-2. **Covers the window:** `ghcnd-inventory.txt` shows TMAX, TMIN and PRCP reported across the
-   configured window. That excludes retired airports (Toronto Buttonville, the old Mirabel) and
-   current Montréal-Mirabel, which reports no precipitation.
-3. **Prefer the international airport** when several remain (Calgary International over Springbank),
-   then a WMO ID, more elements, the longer record.
-4. **Every candidate and the reason it won or lost** is recorded in `ops.station_resolution`.
+1. **Find the city's airport.** Of the stations named like an airport (`… A`, Environment Canada's
+   convention; `… AP`, NOAA's for the US), prefer the international one (`INTL`, `INT'L`,
+   `INTERCONTINENTAL`), then the one reporting more of TMAX, TMIN and PRCP across the window, then
+   the most recent data. Calgary International beats Springbank; Montréal-Trudeau beats Mirabel,
+   which reports no precipitation.
+2. **Use the station at that airport that reports everything.** That's the airport's own station if
+   `ghcnd-inventory.txt` shows TMAX, TMIN and PRCP across the whole window. Otherwise it's the
+   nearest station that does, within `max_distance_km` (5 km). Newer Environment Canada airport
+   stations often report temperature but not precipitation, while a climate station beside them
+   reports both: Winnipeg uses `WINNIPEG A CS`, 1.0 km from the airport, and Regina uses
+   `REGINA RCS`, 0.1 km away.
+
+Ties go to the station with more elements, then the lowest ID, so the result never depends on the
+order rows come back in. Every candidate and the reason it won or lost is recorded in
+`ops.station_resolution`.
 
 This resolves exactly the five airports in the brief. Adding a sixth city is one line,
 `- {city: Edmonton, province: 'AB'}`, and nothing else changes: the station, its elements, the dbt
-models, the data tests and the narratives all follow (`tests/test_resolve.py` covers this). A city
-can also pin `station_id`, which must still pass the rules.
+models, the data tests and the narratives all follow (`tests/test_resolve.py` covers this).
+
+**Tested beyond the brief.** I ran the rules against the full metadata for 20 more Canadian cities and
+15 US cities (`country: US`, state as `province`):
+
+| | The rules pick the main airport | Needs one config field |
+|---|---|---|
+| Canada (20) | 18, from Edmonton to Iqaluit; 9 of them through a climate station beside the airport | Kitchener (airport station named `KITCHENER/WATERLOO`: pin `station_id`); Mississauga (its airport is Pearson, already Toronto's) |
+| US (15) | 11, including Houston Intercontinental and Atlanta's `HARTSFIELD-JACKSON INT` (cut off at NOAA's 30 characters) | New York (`name_prefix: JFK`), Boston (Logan is named just `BOSTON`: pin `station_id`), Dallas (gets Love Field; DFW is `DAL-FTW WSCMO AP`: `name_prefix: DAL-FTW`), Las Vegas (gets Henderson; `name_prefix: McCarran`) |
+
+The rules fail loudly rather than guess: a city with no airport-named station stops the
+ingest with a message saying to set `name_prefix` or pin `station_id`. A pinned station must exist
+and report the required elements.
 
 **NOAA changed the station IDs the day before this brief arrived.** GHCN-Daily v3.35 (October 1,
 2026) renamed every Environment Canada station from network code `0` to `N`, so Toronto Pearson is
@@ -340,10 +358,10 @@ results land in `./data` as with a manual run.
   warehouse such as BigQuery or Postgres removes that limit.
 - **Raw keeps full history; the window applies downstream.** Changing the window never needs a
   reload or a full refresh. It costs a little storage.
-- **Station selection relies on Environment Canada's naming convention** (`… A` for airports).
-  It's documented and tested, and `station_id` pins a station where the convention doesn't hold.
-  NOAA truncates names to 30 characters, which can hide the suffix
-  (`MONTREAL/PIERRE ELLIOTT TRUDEA`); those entries happen to be retired here.
+- **Station selection starts from names.** Finding the airport relies on naming conventions
+  (`… A`, `… AP`) and on the airport being named after its city, which holds for 29 of the 35
+  cities tested. The other six need one config field. Matching cities to airports by
+  coordinates would remove that, but it needs a city location source that NOAA doesn't provide.
 - **Narratives cover the last 14 days by default,** about 7 requests. Two years for five stations is
   about 365 requests, which may exceed a free-tier key's daily quota; the cache makes that a
   multi-day backfill rather than a failure.

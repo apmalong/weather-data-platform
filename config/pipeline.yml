@@ -20,10 +20,16 @@ window:
 stations:
   country: CA
   # How a city's station is chosen from ghcnd-stations.txt and ghcnd-inventory.txt.
+  # 1. The city's airport: a name like "<CITY> ... A" (Environment Canada) or "... AP" (NOAA, US),
+  #    preferring the international one.
+  # 2. Its station: the airport's own if it reports every required element across the window,
+  #    otherwise the nearest station that does within max_distance_km (newer Canadian airport
+  #    stations often skip precipitation, which a climate station beside them reports).
   selection:
-    airport_name_pattern: ' A$'          # Environment Canada names airport stations "<NAME> A"
-    preferred_name_pattern: "INT'?L"     # among airports, prefer the international one
-    required_elements: [TMAX, TMIN, PRCP]  # must be reported across the whole window
+    airport_name_pattern: ' (A|AP|INT)$'     # INT: a name cut off at NOAA's 30 characters
+    preferred_name_pattern: '\bINT(L|''L|ERCONTINENTAL)?\b'   # INTL, INT'L, INTERCONTINENTAL, cut-off INT
+    required_elements: [TMAX, TMIN, PRCP]
+    max_distance_km: 5
   # Quote province codes: YAML reads a bare ON as the boolean true.
   cities:
     - {city: Toronto, province: 'ON'}
@@ -31,8 +37,9 @@ stations:
     - {city: Vancouver, province: 'BC'}
     - {city: Calgary, province: 'AB'}
     - {city: Ottawa, province: 'ON'}
-    # Optional per city: name_prefix (defaults to the city in capitals, accents removed) and
-    # station_id to pin a station; a pinned ID must still exist in the metadata.
+    # Optional per city: name_prefix (defaults to the city in capitals, accents removed),
+    # country (defaults to the one above; e.g. US with a two-letter state as province) and
+    # station_id to pin a station; a pinned ID must exist and report the required elements.
 
 elements:
   # Which elements flow downstream: those the selected stations report in the inventory, that the
