@@ -10,12 +10,25 @@ models:
       - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
     columns:
       - name: quality_status
+        description: "{{ doc('quality_status') }}"
         data_tests:
           - accepted_values:
               arguments:
                 values: [valid, trace, qc_failed, out_of_bounds, unparseable, removed_at_source]
       - name: obs_date
         data_tests: [not_null]
+      - {name: raw_value, description: "{{ doc('raw_value') }}"}
+      - {name: value, description: "{{ doc('value') }}"}
+      - {name: mflag, description: "{{ doc('mflag') }}"}
+      - {name: qflag, description: "{{ doc('qflag') }}"}
+      - {name: sflag, description: "{{ doc('sflag') }}"}
+      - {name: is_trace, description: "{{ doc('is_trace') }}"}
+      - {name: is_usable, description: "{{ doc('is_usable') }}"}
+      - {name: policy_hash, description: "{{ doc('policy_hash') }}"}
+      - {name: raw_changed_at, description: "{{ doc('raw_changed_at') }}"}
+      - {name: raw_run_id, description: "{{ doc('raw_run_id') }}"}
+      - {name: is_deleted, description: "{{ doc('is_deleted') }}"}
+      - {name: dbt_loaded_at, description: "{{ doc('dbt_loaded_at') }}"}
 
   - name: fct_station_day_element
     description: Station x day x element grid over the window, with a status for every cell, gaps included.
@@ -23,15 +36,30 @@ models:
       - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
     columns:
       - name: status
+        description: "{{ doc('status') }}"
         data_tests:
           - accepted_values:
               arguments:
                 values: [valid, trace, qc_failed, out_of_bounds, unparseable, missing, not_reported, not_expected]
+      - {name: value, description: "Usable values only (valid, trace, or 0 for not_reported); null otherwise."}
+      - {name: raw_value, description: "{{ doc('raw_value') }}"}
+      - {name: qflag, description: "{{ doc('qflag') }}"}
+      - {name: is_core, description: "{{ doc('is_core') }}"}
+      - {name: is_expected, description: "{{ doc('is_expected') }}"}
+      - {name: is_trace, description: "{{ doc('is_trace') }}"}
 
   - name: mart_station_daily
-    description: One row per station and day; a value and status column per in-scope element (generated).
+    description: >
+      One row per station and day; a value and status column per in-scope element (generated from
+      the elements in scope, so a new element adds columns without a SQL change). Values are in the
+      stored unit; each `<element>_status` uses the statuses of fct_station_day_element.
     data_tests:
       - unique_combination: {arguments: {columns: [station_id, obs_date]}}
+    columns:
+      - {name: core_expected, description: Core elements the station is expected to report that day.}
+      - {name: core_present, description: Core elements with a usable value or a legitimate "nothing to report".}
+      - {name: missing_elements, description: "Elements with status missing that day, comma-separated."}
+      - {name: quarantined_elements, description: "Elements with a value set aside (qc_failed, out_of_bounds, unparseable)."}
 
   - name: mart_data_quality
     description: Completeness, quarantine counts and freshness per station and element over the window.
@@ -43,11 +71,27 @@ models:
         data_tests:
           - within_bounds: {arguments: {lower: 0.9, upper: 1}, config: {severity: warn}}
       - name: freshness
+        description: >
+          fresh, lagging (latest usable value older than freshness_warn_days), stale (older than
+          freshness_error_days, or none), not_applicable (absent_means_zero elements, which can
+          legitimately go months without a report), or not_expected.
         data_tests:
-          - accepted_values: {arguments: {values: [fresh, lagging, not_applicable, not_expected]}, config: {severity: warn}}
+          - accepted_values:
+              arguments: {values: [fresh, lagging, stale, not_applicable, not_expected]}
+              config: {severity: warn}
+      - {name: expected_days, description: Days in the window the station is expected to report the element.}
+      - {name: days_since_last, description: Days from the latest usable value to the end of the window.}
 
   - name: mart_source_changes
     description: Inserts, revisions and removals NOAA made, per ingest run and station.
+    columns:
+      - {name: run_id, description: "{{ doc('run_id') }}"}
+      - {name: changed_at, description: "{{ doc('changed_at') }}"}
+      - {name: value_revisions, description: Updates where the value changed.}
+      - {name: flag_revisions, description: Updates where only the flags changed.}
+      - {name: historical_changes, description: Updates and deletes to dates more than 7 days before the change; revisions of history, not new days.}
+      - {name: earliest_date_touched, description: Oldest observation date the run changed.}
+      - {name: latest_date_touched, description: Newest observation date the run changed.}
 
   - name: dim_station
     description: The selected stations, one per configured city.
@@ -59,11 +103,22 @@ models:
           - unique
           - not_null
           - relationships: {arguments: {to: "source('config', 'selected_stations')", field: city}}
+      - {name: network_code, description: "{{ doc('network_code') }}"}
+      - {name: wmo_id, description: "{{ doc('wmo_id') }}"}
+      - {name: elements_reported, description: In-scope elements the station reports in the window.}
 
   - name: dim_element
+    description: The elements in scope, with their rules from config.
     columns:
       - name: element
         data_tests: [unique, not_null]
+      - {name: scale, description: "{{ doc('scale') }}"}
+      - {name: is_core, description: "{{ doc('is_core') }}"}
+      - {name: absent_means_zero, description: "{{ doc('absent_means_zero') }}"}
+      - {name: lower_bound, description: "{{ doc('bounds') }}"}
+      - {name: upper_bound, description: "{{ doc('bounds') }}"}
+      - {name: display_unit, description: "{{ doc('display_unit') }}"}
+      - {name: display_factor, description: Multiplier from the stored unit to display_unit.}
 
   - name: mart_narrative_input
     description: One fact sheet (JSON) per station and day for the narrative pipeline, with an input fingerprint.
@@ -71,4 +126,6 @@ models:
       - unique_combination: {arguments: {columns: [station_id, obs_date]}}
     columns:
       - name: input_hash
+        description: "{{ doc('input_hash') }}"
         data_tests: [not_null]
+      - {name: facts, description: "{{ doc('facts') }}"}

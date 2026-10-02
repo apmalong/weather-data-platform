@@ -9,6 +9,9 @@ test-paths: ["tests"]
 
 models:
   weather:
+    # Descriptions from the YAML (and _docs.md) become table and column comments in the warehouse,
+    # visible with `describe` and in `wx --explore`.
+    +persist_docs: {relation: true, columns: true}
     staging:
       +materialized: view
       +schema: staging
@@ -27,3 +30,4 @@ tests:
 # Every dbt invocation and node result goes to ops.dbt_runs / ops.dbt_node_runs (observability).
 on-run-end:
   - "{{ record_run_results(results) }}"
+  - "{{ persist_source_docs() }}"

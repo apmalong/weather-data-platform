@@ -8,21 +8,28 @@ models:
         description: Null when obs_date_text isn't a valid YYYYMMDD date.
         data_tests: [not_null]
       - name: raw_value
-        description: The integer as published, before scaling. Null when value_text isn't an integer.
+        description: "{{ doc('raw_value') }}"
         data_tests: [not_null]
       - name: qflag
-        description: NOAA quality flag; blank means the value passed NOAA's checks (readme, QFLAG).
+        description: "{{ doc('qflag') }}"
         data_tests:
           - accepted_values: {arguments: {values: [D, G, I, K, L, M, N, O, R, S, T, W, X, Z]}}
       - name: mflag
-        description: Measurement flag, e.g. T = trace (readme, MFLAG).
+        description: "{{ doc('mflag') }}"
         data_tests:
           - accepted_values: {arguments: {values: [B, D, H, K, L, O, P, T, W]}}
       - name: element
         data_tests:
           - relationships: {arguments: {to: "ref('stg_ghcnd__elements')", field: element}, config: {severity: warn}}
+      - {name: sflag, description: "{{ doc('sflag') }}"}
+      - {name: obs_time, description: "{{ doc('obs_time') }}"}
+      - {name: obs_date_text, description: The date exactly as published, kept for diagnosing unparseable rows.}
+      - {name: value_text, description: The value exactly as published, kept for diagnosing unparseable rows.}
+      - {name: raw_changed_at, description: "{{ doc('raw_changed_at') }}"}
+      - {name: raw_run_id, description: "{{ doc('raw_run_id') }}"}
 
   - name: stg_ghcnd__stations
+    description: ghcnd-stations.txt, typed, with the station ID split into its parts.
     columns:
       - name: station_id
         data_tests: [unique, not_null]
@@ -34,26 +41,38 @@ models:
         data_tests:
           - not_null
           - within_bounds: {arguments: {lower: -180, upper: 180}}
+      - {name: network_code, description: "{{ doc('network_code') }}"}
+      - {name: elevation_m, description: Metres; null where NOAA publishes -999.9 (missing).}
+      - {name: is_gsn, description: In the GCOS Surface Network.}
+      - {name: hcn_crn_flag, description: US Historical or Climate Reference Network membership; blank in Canada.}
+      - {name: wmo_id, description: "{{ doc('wmo_id') }}"}
 
   - name: stg_ghcnd__inventory
     data_tests:
       - unique_combination: {arguments: {columns: [station_id, element]}}
     columns:
       - name: first_year
+        description: "{{ doc('first_last_year') }}"
         data_tests: [not_null]
       - name: last_year
+        description: "{{ doc('first_last_year') }}"
         data_tests: [not_null]
 
   - name: stg_ghcnd__elements
+    description: The readme's element catalog.
     columns:
       - name: element
         data_tests: [unique, not_null]
       - name: scale
+        description: "{{ doc('scale') }}"
         data_tests: [not_null]
+      - {name: is_core, description: "{{ doc('is_core') }}"}
+      - {name: is_exact_code, description: "{{ doc('is_exact_code') }}"}
 
   - name: stg_ghcnd__countries
   - name: stg_ghcnd__states
 
   - name: stg_config__run_scope
+    description: The window and quality thresholds for this run, as one row.
     data_tests:
       - single_row

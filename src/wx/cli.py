@@ -109,6 +109,28 @@ def _reset(args, cfg) -> None:
     print(f"Removed {len(removed)} item(s). `wx run` rebuilds.")
 
 
+def _explore(args, cfg) -> None:
+    import time
+
+    import duckdb
+    if not cfg.warehouse.exists():
+        sys.exit(f"No warehouse at {cfg.warehouse}: run `wx run` first.")
+    # The UI keeps its own state through this connection, so the connection is in memory (writable)
+    # and the warehouse is attached read-only: nothing can change it, and nothing is locked for long.
+    conn = duckdb.connect()
+    conn.execute(f"attach '{cfg.warehouse.as_posix()}' as warehouse (read_only)")
+    conn.execute("use warehouse")
+    conn.execute("call start_ui()")
+    print("DuckDB UI at http://localhost:4213 (warehouse attached read-only as `warehouse`).\n"
+          "Press Ctrl+C to stop; stop it before running other wx commands.")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        conn.execute("call stop_ui_server()")
+        conn.close()
+
+
 def _run(args, cfg) -> None:
     args.force = False
     args.full_refresh = False
@@ -123,7 +145,9 @@ def _run(args, cfg) -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="wx", description=__doc__.splitlines()[0])
     parser.add_argument("-v", "--verbose", action="store_true")
-    commands = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument("--explore", action="store_true",
+                        help="browse the warehouse in DuckDB's web UI (read-only); with a command, once it finishes")
+    commands = parser.add_subparsers(dest="command")
     ingest = commands.add_parser("ingest", help="download NOAA files, resolve stations, load raw")
     ingest.add_argument("--force", action="store_true", help="reload files even if unchanged")
     transform = commands.add_parser("transform", help="dbt build: models and data-quality tests")
@@ -147,6 +171,8 @@ def main(argv: list[str] | None = None) -> None:
     scope.add_argument("--narratives", action="store_true", help="only the narrative cache")
     reset_cmd.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     args = parser.parse_args(argv)
+    if not args.command and not args.explore:
+        parser.error("a command or --explore is required")
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s", stream=sys.stderr)
@@ -156,9 +182,12 @@ def main(argv: list[str] | None = None) -> None:
         commands_by_name = {"ingest": _ingest, "transform": _transform, "narrate": _narrate, "eval": _eval,
                             "health": _health, "report": _report, "run": _run,
                             "reset": _reset}
-        commands_by_name[args.command](args, cfg)
+        if args.command:
+            commands_by_name[args.command](args, cfg)
+        if args.explore:
+            _explore(args, cfg)
     except Exception as exc:  # one clear line for operators; the traceback is in -v and ops.runs
-        logging.getLogger("wx").error("%s failed: %s", args.command, exc, exc_info=args.verbose)
+        logging.getLogger("wx").error("%s failed: %s", args.command or "explore", exc, exc_info=args.verbose)
         sys.exit(1)
 
 

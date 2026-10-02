@@ -10,3 +10,4 @@ dbt/dbt_packages/
 dbt/logs/
 .pytest_cache/
 .ruff_cache/
+dbt/.user.yml

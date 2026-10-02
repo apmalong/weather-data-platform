@@ -10,6 +10,8 @@ models:
         data_tests: [unique, not_null]
       - name: country_name
         data_tests: [not_null]
+      - {name: network_code, description: "{{ doc('network_code') }}"}
+      - {name: wmo_id, description: "{{ doc('wmo_id') }}"}
 
   - name: int_elements__in_scope
     description: Elements the selected stations report in the window, per the inventory and readme catalog.
@@ -18,15 +20,37 @@ models:
         data_tests: [unique, not_null]
       - name: unit
         data_tests: [not_null]
+      - {name: scale, description: "{{ doc('scale') }}"}
+      - {name: is_core, description: "{{ doc('is_core') }}"}
+      - {name: absent_means_zero, description: "{{ doc('absent_means_zero') }}"}
+      - {name: lower_bound, description: "{{ doc('bounds') }}"}
+      - {name: upper_bound, description: "{{ doc('bounds') }}"}
+      - {name: display_unit, description: "{{ doc('display_unit') }}"}
+      - {name: policy_hash, description: "{{ doc('policy_hash') }}"}
 
   - name: int_station_elements
+    description: The years each selected station reports each element, from the inventory.
     data_tests:
       - unique_combination: {arguments: {columns: [station_id, element]}}
+    columns:
+      - {name: first_year, description: "{{ doc('first_last_year') }}"}
+      - {name: last_year, description: "{{ doc('first_last_year') }}"}
 
   - name: int_observations__assessed
+    description: Observations for the selected stations, scaled and given a quality status. Nothing is dropped.
     data_tests:
       - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
     columns:
       - name: quality_status
+        description: "{{ doc('quality_status') }}"
         data_tests:
           - accepted_values: {arguments: {values: [valid, trace, qc_failed, out_of_bounds, unparseable]}}
+      - {name: raw_value, description: "{{ doc('raw_value') }}"}
+      - {name: value, description: "{{ doc('value') }}"}
+      - {name: mflag, description: "{{ doc('mflag') }}"}
+      - {name: qflag, description: "{{ doc('qflag') }}"}
+      - {name: sflag, description: "{{ doc('sflag') }}"}
+      - {name: is_trace, description: "{{ doc('is_trace') }}"}
+      - {name: policy_hash, description: "{{ doc('policy_hash') }}"}
+      - {name: raw_changed_at, description: "{{ doc('raw_changed_at') }}"}
+      - {name: raw_run_id, description: "{{ doc('raw_run_id') }}"}

@@ -1,5 +1,8 @@
 version: 2
 
+# Column descriptions come from doc blocks in _docs.md. The persist_source_docs hook (on-run-end)
+# writes them to the warehouse as comments, since dbt doesn't build sources itself.
+
 sources:
   - name: raw
     description: NOAA GHCN-Daily files as published, loaded by `wx ingest`. All values are text.
@@ -8,44 +11,98 @@ sources:
         description: One row per station, date and element; current state after change detection.
         columns:
           - name: station_id
+            description: GHCN station ID (11 characters).
             data_tests: [not_null]
           - name: obs_date
+            description: Observation date as published (YYYYMMDD text).
             data_tests: [not_null]
           - name: element
+            description: GHCN element code (TMAX, PRCP, …).
             data_tests: [not_null]
+          - {name: value, description: "{{ doc('raw_value') }}"}
+          - {name: mflag, description: "{{ doc('mflag') }}"}
+          - {name: qflag, description: "{{ doc('qflag') }}"}
+          - {name: sflag, description: "{{ doc('sflag') }}"}
+          - {name: obs_time, description: "{{ doc('obs_time') }}"}
+          - {name: _row_hash, description: "{{ doc('row_hash') }}"}
+          - {name: _source_file, description: "{{ doc('source_file') }}"}
+          - {name: _first_loaded_at, description: "{{ doc('first_loaded_at') }}"}
+          - {name: _last_changed_at, description: "{{ doc('last_changed_at') }}"}
+          - {name: _run_id, description: "{{ doc('raw_run_id') }}"}
         data_tests:
           - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
       - name: observation_changes
         description: Every insert, update and delete applied to raw.observations, per ingest run.
+        columns:
+          - {name: run_id, description: "{{ doc('run_id') }}"}
+          - {name: change, description: "{{ doc('change') }}"}
+          - {name: old_value, description: Value before the change (null for an insert).}
+          - {name: new_value, description: Value after the change (null for a delete).}
+          - {name: old_flags, description: "Flags before the change, as mflag|qflag|sflag|obs_time."}
+          - {name: new_flags, description: "Flags after the change, as mflag|qflag|sflag|obs_time."}
+          - {name: changed_at, description: "{{ doc('changed_at') }}"}
       - name: stations
         description: ghcnd-stations.txt, cut at the readme's column positions.
         columns:
           - name: id
+            description: GHCN station ID; country (2) + network code (1) + station number (8).
             data_tests: [unique, not_null]
+          - {name: elevation, description: "Metres; -999.9 means missing (readme)."}
+          - {name: gsn_flag, description: GSN when the station is in the GCOS Surface Network.}
+          - {name: hcn_crn_flag, description: US Historical or Climate Reference Network membership; blank in Canada.}
+          - {name: wmo_id, description: "{{ doc('wmo_id') }}"}
+          - {name: _source_file, description: "{{ doc('source_file') }}"}
+          - {name: _sha256, description: "{{ doc('sha256') }}"}
+          - {name: _loaded_at, description: "{{ doc('loaded_at') }}"}
+          - {name: _run_id, description: "{{ doc('run_id') }}"}
       - name: inventory
         description: ghcnd-inventory.txt, one row per station and element with the years reported.
+        columns:
+          - {name: first_year, description: "{{ doc('first_last_year') }}"}
+          - {name: last_year, description: "{{ doc('first_last_year') }}"}
+          - {name: _source_file, description: "{{ doc('source_file') }}"}
+          - {name: _sha256, description: "{{ doc('sha256') }}"}
+          - {name: _loaded_at, description: "{{ doc('loaded_at') }}"}
+          - {name: _run_id, description: "{{ doc('run_id') }}"}
         data_tests:
           - unique_combination: {arguments: {columns: [id, element]}}
       - name: countries
         columns:
           - name: code
             data_tests: [unique, not_null]
+          - {name: _source_file, description: "{{ doc('source_file') }}"}
+          - {name: _sha256, description: "{{ doc('sha256') }}"}
+          - {name: _loaded_at, description: "{{ doc('loaded_at') }}"}
+          - {name: _run_id, description: "{{ doc('run_id') }}"}
       - name: states
         columns:
           - name: code
             data_tests: [unique, not_null]
+          - {name: _source_file, description: "{{ doc('source_file') }}"}
+          - {name: _sha256, description: "{{ doc('sha256') }}"}
+          - {name: _loaded_at, description: "{{ doc('loaded_at') }}"}
+          - {name: _run_id, description: "{{ doc('run_id') }}"}
       - name: element_catalog
         description: Elements defined in readme.txt, with the unit and scale parsed from their descriptions.
         columns:
           - name: code
             data_tests: [unique, not_null]
+          - {name: scale, description: "{{ doc('scale') }}"}
+          - {name: core, description: "{{ doc('is_core') }}"}
+          - {name: _loaded_at, description: "{{ doc('loaded_at') }}"}
+          - {name: _run_id, description: "{{ doc('run_id') }}"}
       - name: documents
         description: readme.txt and status.txt, whole.
+        columns:
+          - {name: _sha256, description: "{{ doc('sha256') }}"}
+          - {name: _loaded_at, description: "{{ doc('loaded_at') }}"}
+          - {name: _run_id, description: "{{ doc('run_id') }}"}
 
   - name: config
     description: config/pipeline.yml and the resolved stations, published by `wx ingest` for this run.
     tables:
       - name: selected_stations
+        description: The station resolved for each configured city (see ops.station_resolution for why).
         columns:
           - name: station_id
             data_tests:
@@ -54,6 +111,19 @@ sources:
               - relationships: {arguments: {to: "source('raw', 'stations')", field: id}}
           - name: city
             data_tests: [unique, not_null]
+          - {name: run_id, description: "{{ doc('run_id') }}"}
       - name: window
+        description: The dates covered downstream of raw, from config window.
+        columns:
+          - {name: run_id, description: "{{ doc('run_id') }}"}
       - name: elements
+        description: Element rules from config elements, one row per element mentioned there.
+        columns:
+          - {name: excluded, description: From config elements.exclude; excluded elements don't flow downstream.}
+          - {name: absent_means_zero, description: "{{ doc('absent_means_zero') }}"}
+          - {name: lower_bound, description: "{{ doc('bounds') }}"}
+          - {name: upper_bound, description: "{{ doc('bounds') }}"}
+          - {name: display_unit, description: "{{ doc('display_unit') }}"}
+          - {name: display_factor, description: Multiplier from the stored unit to display_unit.}
       - name: quality
+        description: Quality thresholds from config quality.

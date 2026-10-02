@@ -59,6 +59,7 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | `wx report` | Writes `data/report.html`: one self-contained page, data embedded, nothing to install or serve |
 | `wx run` | `ingest`, `transform`, `narrate`, `report` |
 | `wx reset` | Start over: the warehouse (keeps downloads); `--all` also the downloads and report, like a fresh clone; `--narratives` only the narrative cache. Asks first unless `--yes` |
+| `wx --explore` | Opens the warehouse in DuckDB's web UI at http://localhost:4213, read-only; before a command (`wx --explore run`), once the command finishes. Ctrl+C stops it |
 
 Everything lands in one DuckDB file, `data/warehouse.duckdb`. Open it with the DuckDB CLI or any
 SQL client, for example:
@@ -215,6 +216,11 @@ What's wrong with the raw data, what the pipeline does about it, and where:
 **What we don't do:** fill missing days by interpolation, borrow values from a nearby station, or
 correct values NOAA flagged. Each would give the narratives a number nobody measured. A gap stays
 a gap, labelled with its reason, and the completeness report counts it.
+
+Every column that records lineage, change, quality or a run (`_row_hash`, `policy_hash`,
+`input_hash`, `is_deleted`, NOAA's flags, the `ops` ledger…) is explained in
+[docs/metadata_columns.md](docs/metadata_columns.md). The same definitions are in the dbt YAML and are
+written to the warehouse as column comments on every build.
 
 ### Data quality: detect, quarantine, measure, surface
 
@@ -392,6 +398,6 @@ prompts/                  narrative prompts, versioned
 evals/cases.yml           the evaluation set
 orchestration/            optional Airflow (Dockerfile, compose, DAG)
 tests/                    unit and integration tests (pytest)
-docs/                     example health report
+docs/                     metadata column reference, example health report
 src/wx/report_template.html   the results page (React via CDN, data embedded by `wx report`)
 ```
