@@ -1,0 +1,59 @@
+version: 2
+
+sources:
+  - name: raw
+    description: NOAA GHCN-Daily files as published, loaded by `wx ingest`. All values are text.
+    tables:
+      - name: observations
+        description: One row per station, date and element; current state after change detection.
+        columns:
+          - name: station_id
+            data_tests: [not_null]
+          - name: obs_date
+            data_tests: [not_null]
+          - name: element
+            data_tests: [not_null]
+        data_tests:
+          - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
+      - name: observation_changes
+        description: Every insert, update and delete applied to raw.observations, per ingest run.
+      - name: stations
+        description: ghcnd-stations.txt, cut at the readme's column positions.
+        columns:
+          - name: id
+            data_tests: [unique, not_null]
+      - name: inventory
+        description: ghcnd-inventory.txt, one row per station and element with the years reported.
+        data_tests:
+          - unique_combination: {arguments: {columns: [id, element]}}
+      - name: countries
+        columns:
+          - name: code
+            data_tests: [unique, not_null]
+      - name: states
+        columns:
+          - name: code
+            data_tests: [unique, not_null]
+      - name: element_catalog
+        description: Elements defined in readme.txt, with the unit and scale parsed from their descriptions.
+        columns:
+          - name: code
+            data_tests: [unique, not_null]
+      - name: documents
+        description: readme.txt and status.txt, whole.
+
+  - name: config
+    description: config/pipeline.yml and the resolved stations, published by `wx ingest` for this run.
+    tables:
+      - name: selected_stations
+        columns:
+          - name: station_id
+            data_tests:
+              - unique
+              - not_null
+              - relationships: {arguments: {to: "source('raw', 'stations')", field: id}}
+          - name: city
+            data_tests: [unique, not_null]
+      - name: window
+      - name: elements
+      - name: quality

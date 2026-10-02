@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: fct_observations
+    description: >
+      Every observation for the selected stations, full history, scaled and assessed. Incremental by
+      change (see the model's header): revisions, backfills and removals from NOAA, element policy
+      changes and newly selected stations are reprocessed; nothing else is.
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
+    columns:
+      - name: quality_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [valid, trace, qc_failed, out_of_bounds, unparseable, removed_at_source]
+      - name: obs_date
+        data_tests: [not_null]
+
+  - name: fct_station_day_element
+    description: Station x day x element grid over the window, with a status for every cell, gaps included.
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
+    columns:
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [valid, trace, qc_failed, out_of_bounds, unparseable, missing, not_reported, not_expected]
+
+  - name: mart_station_daily
+    description: One row per station and day; a value and status column per in-scope element (generated).
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, obs_date]}}
+
+  - name: mart_data_quality
+    description: Completeness, quarantine counts and freshness per station and element over the window.
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, element]}}
+    columns:
+      - name: completeness
+        description: Share of expected days with a usable value or a legitimate "nothing to report".
+        data_tests:
+          - within_bounds: {arguments: {lower: 0.9, upper: 1}, config: {severity: warn}}
+      - name: freshness
+        data_tests:
+          - accepted_values: {arguments: {values: [fresh, lagging, not_applicable, not_expected]}, config: {severity: warn}}
+
+  - name: mart_source_changes
+    description: Inserts, revisions and removals NOAA made, per ingest run and station.
+
+  - name: dim_station
+    description: The selected stations, one per configured city.
+    columns:
+      - name: station_id
+        data_tests: [unique, not_null]
+      - name: city
+        data_tests:
+          - unique
+          - not_null
+          - relationships: {arguments: {to: "source('config', 'selected_stations')", field: city}}
+
+  - name: dim_element
+    columns:
+      - name: element
+        data_tests: [unique, not_null]

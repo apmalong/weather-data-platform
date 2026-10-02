@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: int_stations__selected
+    description: One row per configured city, with the station resolved from NOAA's metadata.
+    columns:
+      - name: station_id
+        data_tests: [unique, not_null]
+      - name: city
+        data_tests: [unique, not_null]
+      - name: country_name
+        data_tests: [not_null]
+
+  - name: int_elements__in_scope
+    description: Elements the selected stations report in the window, per the inventory and readme catalog.
+    columns:
+      - name: element
+        data_tests: [unique, not_null]
+      - name: unit
+        data_tests: [not_null]
+
+  - name: int_station_elements
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, element]}}
+
+  - name: int_observations__assessed
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, obs_date, element]}}
+    columns:
+      - name: quality_status
+        data_tests:
+          - accepted_values: {arguments: {values: [valid, trace, qc_failed, out_of_bounds, unparseable]}}

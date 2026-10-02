@@ -1,0 +1,10 @@
+weather:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      # WX_WAREHOUSE is set by `wx`; the default is relative to this folder for running dbt directly.
+      path: "{{ env_var('WX_WAREHOUSE', '../data/warehouse.duckdb') }}"
+      threads: 4
+      settings:
+        TimeZone: UTC

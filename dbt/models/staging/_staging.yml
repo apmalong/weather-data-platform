@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: stg_ghcnd__observations
+    description: Typed observations; text originals kept beside the typed columns for diagnosis.
+    columns:
+      - name: obs_date
+        description: Null when obs_date_text isn't a valid YYYYMMDD date.
+        data_tests: [not_null]
+      - name: raw_value
+        description: The integer as published, before scaling. Null when value_text isn't an integer.
+        data_tests: [not_null]
+      - name: qflag
+        description: NOAA quality flag; blank means the value passed NOAA's checks (readme, QFLAG).
+        data_tests:
+          - accepted_values: {arguments: {values: [D, G, I, K, L, M, N, O, R, S, T, W, X, Z]}}
+      - name: mflag
+        description: Measurement flag, e.g. T = trace (readme, MFLAG).
+        data_tests:
+          - accepted_values: {arguments: {values: [B, D, H, K, L, O, P, T, W]}}
+      - name: element
+        data_tests:
+          - relationships: {arguments: {to: "ref('stg_ghcnd__elements')", field: element}, config: {severity: warn}}
+
+  - name: stg_ghcnd__stations
+    columns:
+      - name: station_id
+        data_tests: [unique, not_null]
+      - name: latitude
+        data_tests:
+          - not_null
+          - within_bounds: {arguments: {lower: -90, upper: 90}}
+      - name: longitude
+        data_tests:
+          - not_null
+          - within_bounds: {arguments: {lower: -180, upper: 180}}
+
+  - name: stg_ghcnd__inventory
+    data_tests:
+      - unique_combination: {arguments: {columns: [station_id, element]}}
+    columns:
+      - name: first_year
+        data_tests: [not_null]
+      - name: last_year
+        data_tests: [not_null]
+
+  - name: stg_ghcnd__elements
+    columns:
+      - name: element
+        data_tests: [unique, not_null]
+      - name: scale
+        data_tests: [not_null]
+
+  - name: stg_ghcnd__countries
+  - name: stg_ghcnd__states
+
+  - name: stg_config__run_scope
+    data_tests:
+      - single_row

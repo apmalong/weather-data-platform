@@ -65,6 +65,11 @@ def _publish_config(conn, cfg: Config, stations: list[resolve.Station], start: d
                      [[s.city, s.province, s.station_id, s.name, run_id] for s in stations])
     conn.execute("create or replace table config.window (start_date date, end_date date, run_id varchar)")
     conn.execute("insert into config.window values (?, ?, ?)", [start, end, run_id])
+    q = cfg.quality
+    conn.execute("create or replace table config.quality (freshness_warn_days integer, freshness_error_days integer, "
+                 "volume_change_warn_pct double)")
+    conn.execute("insert into config.quality values (?, ?, ?)",
+                 [q.freshness_warn_days, q.freshness_error_days, q.volume_change_warn_pct])
     e = cfg.elements
     codes = sorted(set(e.exclude) | set(e.absent_means_zero) | set(e.bounds))
     conn.execute("create or replace table config.elements (element varchar, excluded boolean, "
