@@ -6,6 +6,7 @@ Errors fail the narrative; warnings are recorded but don't.
   cited_only_usable      it cites no fact whose status makes the value unusable
   numbers_grounded       every number in the text matches some usable fact (rounding allowed)
   no_invented_topics     it doesn't talk about things it wasn't given (forecasts, humidity...)
+  no_false_gaps          it doesn't call a reading missing or unavailable when it was usable
   mentions_temperatures  warn: high and low were usable but not both mentioned
   acknowledges_gaps      warn: a temperature or precipitation reading was missing but not mentioned
   length                 warn: 1-3 sentences, at most 450 characters
@@ -18,6 +19,9 @@ USABLE = {"valid", "trace"}
 INVENTED = re.compile(r"\b(forecast|tomorrow|humid\w*|cloud\w*|sunny|sunshine|fog\w*|visibility|record|thunder\w*|"
                       r"pressure|warmer than|colder than|than yesterday)\b", re.I)
 GAP_WORDS = re.compile(r"\b(not available|unavailable|missing|no reading|wasn't recorded|was not recorded)\b", re.I)
+# Which elements a sentence is about, for checking claims that a reading was missing.
+TOPICS = {"temperature": ("TMAX", "TMIN"), "precipitation": ("PRCP",), "rain": ("PRCP",),
+          "snowfall": ("SNOW",), "gust": ("WSFG",), "wind": ("WSFG",)}
 NUMBER = re.compile(r"(?<![\w.])[-−]?\d+(?:\.\d+)?")
 
 
@@ -61,6 +65,16 @@ def validate(narrative: str, cited: list[dict], facts: list[dict], obs_date: str
 
     invented = sorted({m.lower() for m in INVENTED.findall(narrative)})
     checks.append(Check("no_invented_topics", not invented, "error", ", ".join(invented)))
+
+    false_gaps = []
+    # Clause by clause, so "no precipitation, with temperatures unavailable" ties the gap to temperature.
+    for sentence in re.split(r"[.!?;,]\s+", narrative):
+        if GAP_WORDS.search(sentence):
+            for word, elements in TOPICS.items():
+                if re.search(rf"\b{word}", sentence, re.I) and all(
+                        by_element.get(e, {}).get("status") in USABLE for e in elements):
+                    false_gaps.append(word)
+    checks.append(Check("no_false_gaps", not false_gaps, "error", ", ".join(sorted(set(false_gaps)))))
 
     temps = [by_element.get(e) for e in ("TMAX", "TMIN")]
     if all(t and t["status"] in USABLE for t in temps):

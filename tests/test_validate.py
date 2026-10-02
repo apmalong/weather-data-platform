@@ -54,3 +54,14 @@ def test_unicode_minus_is_read_as_negative():
     facts = [{"element": "TMIN", "value": -28.0, "unit": "degrees C", "status": "valid"}]
     checks = validate("A low of −28 °C.", [{"element": "TMIN", "value": -28.0}], facts, "2026-01-24")
     assert passed(checks)
+
+
+def test_false_claim_of_missing_data_fails_but_clauses_are_kept_apart():
+    facts = [{"element": "PRCP", "value": 0.0, "status": "valid"},
+             {"element": "TMAX", "value": None, "status": "missing"},
+             {"element": "TMIN", "value": None, "status": "missing"}]
+    wrong = validate("Temperatures and precipitation were missing.", [], facts, "2026-09-16")
+    right = validate("Vancouver recorded no measurable precipitation, with temperatures unavailable.", [], facts,
+                     "2026-09-16")
+    assert "no_false_gaps" in failures(wrong) and not passed(wrong)
+    assert "no_false_gaps" not in failures(right)

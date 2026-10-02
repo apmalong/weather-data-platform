@@ -1,0 +1,15 @@
+# Fixed evaluation set for the narrative prompt: real station-days chosen because they are hard.
+# `wx eval` runs them all in one request, scores them with the production validation checks plus
+# style checks, and stores the results so prompt versions and models can be compared.
+cases:
+  - {id: missing-temps, city: Vancouver, date: 2026-09-16, why: TMAX/TMIN/TAVG missing; must say so, not guess}
+  - {id: trace-rain, city: Montreal, date: 2026-09-29, why: trace precipitation must not become "no rain"}
+  - {id: big-gust, city: Ottawa, date: 2026-08-12, why: the strongest gust in the window (107 km/h)}
+  - {id: big-snow, city: Toronto, date: 2026-01-25, why: 46.2 cm of snowfall; the lead story}
+  - {id: deep-snow, city: Ottawa, date: 2025-02-17, why: 92 cm on the ground}
+  - {id: qc-failed-snow, city: Calgary, date: 2025-12-19, why: SNOW and SNWD failed NOAA checks; must not be reported}
+  - {id: coldest, city: Calgary, date: 2025-02-15, why: -28.5 C low; negative numbers}
+  - {id: hottest, city: Toronto, date: 2026-07-14, why: 36.8 C high}
+  - {id: heavy-rain, city: Ottawa, date: 2026-07-01, why: 118.4 mm of rain}
+  - {id: calm-dry, city: Ottawa, date: 2026-09-29, why: nothing notable; gusts and snow not reported}
+  - {id: summer-snow-trace, city: Montreal, date: 2026-06-28, why: a trace of snow in June, reported as published}

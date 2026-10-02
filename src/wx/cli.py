@@ -3,6 +3,7 @@
     wx ingest       download NOAA files, resolve stations, load raw
     wx transform    dbt build: models and data-quality tests
     wx narrate      daily narratives with Gemini (or the offline mock), validated against the data
+    wx eval         score a narrative prompt/model on the hard cases in evals/cases.yml
     wx run          ingest, transform, narrate
 """
 import argparse
@@ -45,6 +46,24 @@ def _narrate(args, cfg) -> None:
           f"{result['deferred']} deferred")
 
 
+def _eval(args, cfg) -> None:
+    from pathlib import Path
+
+    from wx.narrate import evaluate
+    if args.provider:
+        cfg.narratives.provider = args.provider
+    result = evaluate.run(cfg, Path(args.prompt) if args.prompt else None)
+    for r in result["results"]:
+        flags = ", ".join(r["failed"] + r["warnings"] + r["style"]) or "ok"
+        if r["details"]:
+            flags += f" ({r['details']})"
+        print(f"{'PASS' if r['passed'] else 'FAIL'}  {r['case']:<18} {flags}\n      {r['narrative']}")
+    print(f"\neval {result['eval_id']} {result['prompt_version']} on {result['model']}: {result['passed']}/"
+          f"{result['cases']} passed, {result['error_failures']} errors, {result['warnings']} warnings, "
+          f"{result['style_issues']} style issues, {result['avg_chars']} chars avg, "
+          f"{result['input_tokens']}+{result['output_tokens']} tokens")
+
+
 def _run(args, cfg) -> None:
     args.force = False
     args.full_refresh = False
@@ -66,6 +85,9 @@ def main(argv: list[str] | None = None) -> None:
     narrate = commands.add_parser("narrate", help="daily narratives, validated against the data")
     narrate.add_argument("--days", type=int, help="override narratives.days")
     narrate.add_argument("--provider", choices=["auto", "gemini", "mock"], help="override narratives.provider")
+    evaluation = commands.add_parser("eval", help="score a prompt/model on evals/cases.yml")
+    evaluation.add_argument("--prompt", help="prompt file to evaluate (default: narratives.prompt)")
+    evaluation.add_argument("--provider", choices=["auto", "gemini", "mock"])
     commands.add_parser("run", help="ingest, transform, narrate")
     args = parser.parse_args(argv)
 
@@ -74,7 +96,9 @@ def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     cfg = config.load()
     try:
-        {"ingest": _ingest, "transform": _transform, "narrate": _narrate, "run": _run}[args.command](args, cfg)
+        commands_by_name = {"ingest": _ingest, "transform": _transform, "narrate": _narrate, "eval": _eval,
+                            "run": _run}
+        commands_by_name[args.command](args, cfg)
     except Exception as exc:  # one clear line for operators; the traceback is in -v and ops.runs
         logging.getLogger("wx").error("%s failed: %s", args.command, exc, exc_info=args.verbose)
         sys.exit(1)
