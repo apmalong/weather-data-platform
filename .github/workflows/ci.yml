@@ -29,6 +29,8 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: health-report
-          path: health_report.md
+          name: results
+          path: |
+            health_report.md
+            data/report.html
           if-no-files-found: ignore

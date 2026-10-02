@@ -22,9 +22,12 @@ git clone https://github.com/apmalong/weather-data-platform.git
 cd weather-data-platform
 uv sync                      # Python 3.12 + locked dependencies
 cp .env.example .env         # optional: add GEMINI_API_KEY (free, no billing: aistudio.google.com/apikey)
-uv run wx run                # ingest -> dbt build (models + tests) -> narratives: ~1 min (~3 with Gemini)
-uv run wx health             # what happened, stage by stage
+uv run wx run                # ingest -> dbt build (models + tests) -> narratives -> report: ~1 min (~3 with Gemini)
 ```
+
+Then open **`data/report.html`** in a browser: the weather, data quality, narratives with their
+validation, prompt evaluation and pipeline operations on one page. `uv run wx health` prints the
+same health summary in the terminal.
 
 Without `GEMINI_API_KEY`, narratives come from an offline mock provider with the same interface,
 so every stage runs end to end; with a key, the same command uses Gemini.
@@ -36,7 +39,8 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | `wx narrate` | Daily narratives for the last 14 days, in batches, validated against the data; cached, so reruns only do new or revised days |
 | `wx eval` | Scores a narrative prompt and model on hard cases (`evals/cases.yml`): `--prompt prompts/narrative_v1.md` |
 | `wx health` | One report: runs, checks, dbt tests, data quality, NOAA's revisions, narratives, evaluation. `--strict` exits 1 on errors |
-| `wx run` | `ingest`, `transform`, `narrate` |
+| `wx report` | Writes `data/report.html`: one self-contained page, data embedded, nothing to install or serve |
+| `wx run` | `ingest`, `transform`, `narrate`, `report` |
 
 Everything lands in one DuckDB file, `data/warehouse.duckdb`. Open it with the DuckDB CLI or any
 SQL client, for example:
@@ -234,15 +238,23 @@ narrative plus every figure it used and which element it came from.
 
   Evaluation also found a gap in validation itself: v1 once wrote "temperatures and precipitation
   were missing" when precipitation was a valid 0 mm, and no check caught it. That's why
-  `no_false_gaps` exists.
+  `no_false_gaps` exists. It also shows the limits of a prompt: on one run v2 left out that
+  Vancouver's temperatures were missing, which `acknowledges_gaps` flags as a warning.
 
 ### Observability
 
 Every stage writes to the `ops` schema: `runs`, `downloads`, `loads`, `checks`,
 `station_resolution`, `dbt_runs` and `dbt_node_runs` (from a dbt `on-run-end` hook), `llm_calls`
 (tokens, latency, retries, model) and `eval_runs`/`eval_results`. `wx health` turns them into one
-report with an overall status, the reasons for it, and per-stage detail; CI publishes it as an
-artifact on every run. See [docs/health_report.md](docs/health_report.md) for an example.
+report with an overall status, the reasons for it, and per-stage detail. See
+[docs/health_report.md](docs/health_report.md) for an example.
+
+`wx report` puts it all on one page for people: an overview with the health status; the weather per
+city (temperature, precipitation and snowfall over 30 days to the whole window, gaps shown as gaps,
+or as a table); completeness per city and element and what NOAA changed; every narrative beside the
+facts it was written from and its validation checks; prompt versions compared case by case; and dbt
+results and LLM calls. It's one HTML file with the data embedded (React from a CDN, no build step),
+in light and dark mode. CI publishes it and the health report as artifacts on every run.
 
 ## Orchestration (optional)
 
@@ -297,4 +309,5 @@ evals/cases.yml           the evaluation set
 orchestration/            optional Airflow (Dockerfile, compose, DAG)
 tests/                    unit and integration tests (pytest)
 docs/                     example health report
+src/wx/report_template.html   the results page (React via CDN, data embedded by `wx report`)
 ```

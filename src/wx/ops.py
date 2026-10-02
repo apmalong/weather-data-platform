@@ -1,5 +1,5 @@
 """The ops ledger: every stage records what it did in the warehouse's `ops` schema, so a run can be
-explained after the fact and health checks have history to compare against (docs/observability.md).
+explained after the fact and health checks have history to compare against (`wx health`, `wx report`).
 """
 import json
 import uuid

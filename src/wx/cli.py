@@ -5,7 +5,8 @@
     wx narrate      daily narratives with Gemini (or the offline mock), validated against the data
     wx eval         score a narrative prompt/model on the hard cases in evals/cases.yml
     wx health       one report on every stage: runs, checks, dbt tests, data quality, narratives
-    wx run          ingest, transform, narrate
+    wx report       one HTML page with the results: weather, data quality, narratives, evaluation, ops
+    wx run          ingest, transform, narrate, report
 """
 import argparse
 import logging
@@ -78,6 +79,14 @@ def _health(args, cfg) -> None:
         sys.exit(1)
 
 
+def _report(args, cfg) -> None:
+    from pathlib import Path
+
+    from wx import report
+    path = report.render(cfg, Path(args.out) if args.out else None)
+    print(f"report written to {path.resolve()}")
+
+
 def _run(args, cfg) -> None:
     args.force = False
     args.full_refresh = False
@@ -85,6 +94,8 @@ def _run(args, cfg) -> None:
     _ingest(args, cfg)
     _transform(args, cfg)
     _narrate(args, cfg)
+    args.out = None
+    _report(args, cfg)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -105,7 +116,9 @@ def main(argv: list[str] | None = None) -> None:
     health = commands.add_parser("health", help="report on every stage from the ops ledger and marts")
     health.add_argument("--out", help="also write the report to this Markdown file")
     health.add_argument("--strict", action="store_true", help="exit 1 when the status is ERROR")
-    commands.add_parser("run", help="ingest, transform, narrate")
+    rep = commands.add_parser("report", help="write the results as one HTML page")
+    rep.add_argument("--out", help="output file (default: data/report.html)")
+    commands.add_parser("run", help="ingest, transform, narrate, report")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -114,7 +127,7 @@ def main(argv: list[str] | None = None) -> None:
     cfg = config.load()
     try:
         commands_by_name = {"ingest": _ingest, "transform": _transform, "narrate": _narrate, "eval": _eval,
-                            "health": _health, "run": _run}
+                            "health": _health, "report": _report, "run": _run}
         commands_by_name[args.command](args, cfg)
     except Exception as exc:  # one clear line for operators; the traceback is in -v and ops.runs
         logging.getLogger("wx").error("%s failed: %s", args.command, exc, exc_info=args.verbose)

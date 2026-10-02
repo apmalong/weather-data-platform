@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weather data platform · results</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --wash: rgba(11,11,11,0.04);
+    --s-blue: #2a78d6; --s-orange: #eb6834; --s-aqua: #1baf7a;
+    --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b; --good-text: #006300;
+    --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #184f95;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.05);
+      --s-blue: #3987e5; --s-orange: #d95926; --s-aqua: #199e70; --good-text: #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.05);
+    --s-blue: #3987e5; --s-orange: #d95926; --s-aqua: #199e70; --good-text: #0ca30c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; justify-content: space-between; }
+  h1 { font-size: 21px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 28px 0 10px; }
+  h3 { font-size: 13px; margin: 0 0 8px; color: var(--ink-2); font-weight: 600; }
+  .sub { color: var(--ink-2); font-size: 13px; }
+  .muted { color: var(--muted); }
+  a { color: var(--s-blue); }
+  .tabs { display: flex; gap: 2px; margin: 18px 0 4px; border-bottom: 1px solid var(--grid); overflow-x: auto; }
+  .tabs a { flex: none; padding: 8px 12px; color: var(--ink-2); text-decoration: none; font-weight: 600;
+            border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs a:hover { color: var(--ink); }
+  .tabs a.active { color: var(--ink); border-bottom-color: var(--s-blue); }
+  .card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 14px 16px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .tile .value { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .tile .label { color: var(--ink-2); font-size: 12px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 600; font-size: 12px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+           padding: 1px 8px 1px 6px; border-radius: 999px; border: 1px solid var(--ring); white-space: nowrap; }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 12px 0; }
+  .seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 13px; border: 0; background: var(--surface); color: var(--ink);
+                padding: 5px 11px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--ring); }
+  .seg button.on { background: var(--s-blue); color: #fff; }
+  button.link { font: inherit; font-size: 13px; background: none; border: 0; color: var(--s-blue); cursor: pointer; padding: 0; }
+  .chart { position: relative; }
+  .chart svg { display: block; overflow: visible; }
+  .tip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); color: var(--ink);
+         border: 1px solid var(--ring); border-radius: 8px; padding: 7px 9px; font-size: 12px;
+         box-shadow: 0 4px 14px rgba(0,0,0,0.18); min-width: 150px; }
+  .tip .row { display: flex; justify-content: space-between; gap: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+  .sw.box { height: 10px; width: 10px; }
+  .narr { display: grid; gap: 10px; }
+  .narr .card p { margin: 6px 0 4px; font-size: 15px; line-height: 1.55; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 12px; color: var(--ink-2); }
+  .facts { margin-top: 8px; }
+  .heat td { text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; border: 2px solid var(--surface); }
+  .theme { font: inherit; font-size: 12px; border: 1px solid var(--ring); background: var(--surface); color: var(--ink);
+           border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  ul.reasons { margin: 6px 0 0; padding-left: 18px; }
+  .eval-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+  footer { margin-top: 36px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+const DATA = /*__DATA__*/null;
+const { useState, useEffect, useRef, useMemo } = React;
+const html = htm.bind(React.createElement);
+
+// ---------- helpers ----------
+const fmt = (v, d = 1) => v === null || v === undefined ? "–" : Number(v).toFixed(d).replace(/\.0+$/, "");
+const pct = v => v === null || v === undefined ? "–" : `${(v * 100).toFixed(v < 1 ? 1 : 0)}%`;
+const STATUS = {
+  OK: ["var(--good)", "✓", "OK"], WARN: ["var(--warning)", "!", "Warning"], ERROR: ["var(--critical)", "✕", "Error"],
+  pass: ["var(--good)", "✓", "Passed"], fail: ["var(--critical)", "✕", "Failed"],
+  fresh: ["var(--good)", "✓", "Fresh"], lagging: ["var(--warning)", "!", "Lagging"], stale: ["var(--critical)", "✕", "Stale"],
+  success: ["var(--good)", "✓", "Success"], failed: ["var(--critical)", "✕", "Failed"], running: ["var(--warning)", "…", "Running"],
+  warn: ["var(--warning)", "!", "Warning"], error: ["var(--critical)", "✕", "Error"],
+};
+function Badge({ s, label }) {
+  const [color, icon, text] = STATUS[s] || ["var(--muted)", "•", s];
+  return html`<span class="badge"><span class="dot" style=${{ background: color }}></span>${icon} ${label || text}</span>`;
+}
+// A callback ref, so the observer follows the element when a chart swaps between its empty state and its plot.
+function useWidth() {
+  const [el, setEl] = useState(null);
+  const [width, setWidth] = useState(800);
+  useEffect(() => {
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setWidth(Math.max(280, e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return [setEl, width];
+}
+function niceTicks(min, max, count = 4) {
+  if (min === max) { max = min + 1; }
+  const step0 = (max - min) / count, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0);
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step, ticks = [];
+  for (let t = lo; t <= hi + step / 2; t += step) ticks.push(+t.toFixed(10));
+  return ticks;
+}
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dayLabel = d => { const [y, m, dd] = d.split("-"); return `${MONTHS[+m - 1]} ${+dd}, ${y}`; };
+
+// ---------- charts ----------
+// One x axis (days), one y axis per chart. Lines break at missing days; bars keep a 2px gap.
+function TimeChart({ rows, series, kind, unit, height = 200, hover, setHover, xLabels }) {
+  const [ref, width] = useWidth();
+  const empty = kind === "bar" && !rows.some(r => series.some(s => r[s.key] > 0 || r[s.trace] === "trace"));
+  if (empty) return html`<p class="sub" ref=${ref} style=${{ margin: "2px 0 6px" }}>None in this period.</p>`;
+  const pad = { l: 42, r: 54, t: 8, b: 22 };
+  const w = width - pad.l - pad.r, h = height - pad.t - pad.b, n = rows.length;
+  const values = rows.flatMap(r => series.map(s => r[s.key])).filter(v => v !== null && v !== undefined);
+  const lo = kind === "bar" ? 0 : Math.min(...values, 0), hi = Math.max(...values, kind === "bar" ? 1 : 0);
+  const ticks = niceTicks(lo, hi);
+  const tickDigits = ticks.length > 1 && ticks[1] - ticks[0] < 1 ? 1 : 0;
+  const y = v => pad.t + h - ((v - ticks[0]) / (ticks[ticks.length - 1] - ticks[0])) * h;
+  const x = i => pad.l + (n <= 1 ? w / 2 : (i / (n - 1)) * w);
+  const bw = Math.max(1, w / Math.max(n, 1) - (n > 120 ? 0 : 2));
+  const onMove = e => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const i = Math.round(((e.clientX - box.left - pad.l) / w) * (n - 1));
+    setHover(Math.max(0, Math.min(n - 1, i)));
+  };
+  const paths = series.map(s => {
+    let d = "", open = false;
+    rows.forEach((r, i) => {
+      const v = r[s.key];
+      if (v === null || v === undefined) { open = false; return; }
+      d += `${open ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`; open = true;
+    });
+    return d;
+  });
+  const last = series.map(s => { for (let i = n - 1; i >= 0; i--) if (rows[i][s.key] !== null && rows[i][s.key] !== undefined) return i; return -1; });
+  const hr = hover !== null && hover < n ? rows[hover] : null;
+  return html`
+    <div class="chart" ref=${ref}>
+      <svg width=${width} height=${height} role="img" aria-label=${series.map(s => s.label).join(", ") + " by day"}>
+        ${ticks.map(t => html`<g key=${t}>
+          <line x1=${pad.l} x2=${pad.l + w} y1=${y(t)} y2=${y(t)} stroke=${t === 0 ? "var(--axis)" : "var(--grid)"} stroke-width="1" />
+          <text x=${pad.l - 6} y=${y(t) + 4} text-anchor="end" font-size="11" fill="var(--muted)">${fmt(t, tickDigits)}</text></g>`)}
+        ${xLabels.map(([i, label]) => html`<text key=${i} x=${x(i)} y=${height - 4} text-anchor="middle" font-size="11" fill="var(--muted)">${label}</text>`)}
+        ${kind === "bar" ? series.map(s => rows.map((r, i) => {
+            const v = r[s.key];
+            if (r[s.trace] === "trace") return html`<rect key=${s.key + i} x=${x(i) - bw / 2} y=${y(0) - 2} width=${bw} height="2" fill="var(--muted)" />`;
+            if (!v) return null;
+            return html`<rect key=${s.key + i} x=${x(i) - bw / 2} y=${y(v)} width=${bw} height=${Math.max(1, y(0) - y(v))} rx=${bw > 6 ? 2 : 0} fill=${s.color} />`;
+          }))
+          : paths.map((d, k) => html`<path key=${k} d=${d} fill="none" stroke=${series[k].color} stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`)}
+        ${kind !== "bar" && series.map((s, k) => last[k] >= 0 && html`<text key=${"l" + k} x=${x(last[k]) + 6} y=${y(rows[last[k]][s.key]) + 4} font-size="12" fill="var(--ink-2)">${s.label}</text>`)}
+        ${hr && html`<line x1=${x(hover)} x2=${x(hover)} y1=${pad.t} y2=${pad.t + h} stroke="var(--axis)" stroke-width="1" />`}
+        ${hr && kind !== "bar" && series.map(s => hr[s.key] !== null && hr[s.key] !== undefined && html`<circle key=${"c" + s.key} cx=${x(hover)} cy=${y(hr[s.key])} r="4.5" fill=${s.color} stroke="var(--surface)" stroke-width="2" />`)}
+        <rect x=${pad.l} y=${pad.t} width=${Math.max(0, w)} height=${h} fill="transparent" onMouseMove=${onMove} onMouseLeave=${() => setHover(null)} />
+      </svg>
+      ${hr && html`<div class="tip" style=${{ left: Math.min(x(hover) + 12, width - 190), top: 8 }}>
+        <b>${dayLabel(hr.date)}</b>
+        ${series.map(s => html`<div class="row" key=${s.key}><span><span class="sw" style=${{ background: s.color }}></span> ${s.label}</span>
+          <span>${hr[s.trace] === "trace" ? "trace" : hr[s.key] === null || hr[s.key] === undefined ? (hr[s.status] || "no reading") : `${fmt(hr[s.key])} ${unit}`}</span></div>`)}
+      </div>`}
+    </div>`;
+}
+
+function Weather() {
+  const cities = DATA.stations.map(s => s.city);
+  const [city, setCity] = useState(cities[0]);
+  const [range, setRange] = useState(90);
+  const [hover, setHover] = useState(null);
+  const [table, setTable] = useState(false);
+  const all = DATA.daily.filter(r => r.city === city);
+  const rows = range ? all.slice(-range) : all;
+  const xLabels = useMemo(() => {
+    const out = [], every = Math.max(1, Math.ceil(rows.length / 6));
+    rows.forEach((r, i) => { if (i % every === 0) { const [y, m, d] = r.date.split("-"); out.push([i, rows.length > 120 ? `${MONTHS[+m - 1]} ${y.slice(2)}` : `${MONTHS[+m - 1]} ${+d}`]); } });
+    return out;
+  }, [city, range]);
+  const missingT = rows.filter(r => r.tmax_status === "missing" || r.tmin_status === "missing").length;
+  const station = DATA.stations.find(s => s.city === city);
+  const charts = { rows, hover, setHover, xLabels };
+  return html`
+    <div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="City">${cities.map(c => html`<button key=${c} class=${c === city ? "on" : ""} onClick=${() => setCity(c)}>${c}</button>`)}</div>
+        <div class="seg" role="group" aria-label="Range">${[[30, "30 days"], [90, "90 days"], [365, "1 year"], [0, "Window"]].map(([v, l]) =>
+          html`<button key=${l} class=${v === range ? "on" : ""} onClick=${() => setRange(v)}>${l}</button>`)}</div>
+        <button class="link" onClick=${() => setTable(!table)}>${table ? "Show charts" : "Show as table"}</button>
+      </div>
+      <p class="sub">${station.station_name} (${station.station_id}) · ${rows.length} days, ${rows[0]?.date} to ${rows[rows.length - 1]?.date}
+        ${missingT ? html` · <b>${missingT}</b> days without a temperature reading (gaps in the lines)` : ""}</p>
+      ${table ? html`<div class="card scroll"><table>
+          <thead><tr><th>Date</th><th class="num">High °C</th><th class="num">Low °C</th><th class="num">Precip. mm</th><th class="num">Snow cm</th><th class="num">On ground cm</th><th class="num">Gust km/h</th><th>Missing</th><th>Quarantined</th></tr></thead>
+          <tbody>${rows.slice().reverse().map(r => html`<tr key=${r.date}><td>${r.date}</td><td class="num">${fmt(r.tmax)}</td><td class="num">${fmt(r.tmin)}</td>
+            <td class="num">${r.prcp_status === "trace" ? "trace" : fmt(r.prcp)}</td><td class="num">${r.snow_status === "trace" ? "trace" : fmt(r.snow)}</td>
+            <td class="num">${fmt(r.snwd)}</td><td class="num">${r.wsfg_status === "not_reported" ? "–" : fmt(r.wsfg, 0)}</td>
+            <td>${r.missing_elements || ""}</td><td>${r.quarantined_elements || ""}</td></tr>`)}</tbody></table></div>`
+      : html`<div class="card">
+          <h3>Temperature (°C)</h3>
+          <div class="legend"><span><i class="sw" style=${{ background: "var(--s-orange)" }}></i>Daily high</span><span><i class="sw" style=${{ background: "var(--s-blue)" }}></i>Daily low</span></div>
+          <${TimeChart} ...${charts} kind="line" unit="°C" series=${[{ key: "tmax", label: "High", color: "var(--s-orange)", status: "tmax_status" }, { key: "tmin", label: "Low", color: "var(--s-blue)", status: "tmin_status" }]} />
+          <h3 style=${{ marginTop: 14 }}>Precipitation (mm)</h3>
+          <div class="legend"><span><i class="sw box" style=${{ background: "var(--s-blue)" }}></i>Rain and melted snow</span><span><i class="sw" style=${{ background: "var(--muted)", height: 2 }}></i>Trace</span></div>
+          <${TimeChart} ...${charts} kind="bar" unit="mm" height=${130} series=${[{ key: "prcp", label: "Precipitation", color: "var(--s-blue)", trace: "prcp_status", status: "prcp_status" }]} />
+          <h3 style=${{ marginTop: 14 }}>Snowfall (cm)</h3>
+          <div class="legend"><span><i class="sw box" style=${{ background: "var(--s-aqua)" }}></i>New snow</span><span><i class="sw" style=${{ background: "var(--muted)", height: 2 }}></i>Trace</span></div>
+          <${TimeChart} ...${charts} kind="bar" unit="cm" height=${120} series=${[{ key: "snow", label: "Snowfall", color: "var(--s-aqua)", trace: "snow_status", status: "snow_status" }]} />
+        </div>`}
+    </div>`;
+}
+
+// ---------- tabs ----------
+function Overview() {
+  const n = DATA.narratives || [], passed = n.filter(x => x.passed).length;
+  const tests = (DATA.dbt || []).filter(d => d.resource_type === "test");
+  const latest = DATA.daily.reduce((m, r) => r.date > m ? r.date : m, "");
+  const obs = DATA.daily.length;
+  const h = DATA.health;
+  return html`<div>
+    <div class="card" style=${{ marginTop: 12 }}>
+      <div class="meta"><${Badge} s=${h.status} label=${`Pipeline status: ${h.status}`} /><span>Generated ${DATA.generated_at}</span></div>
+      ${(h.errors.length || h.warnings.length) ? html`<ul class="reasons">${h.errors.map(e => html`<li key=${e}><b>Error:</b> ${e}</li>`)}${h.warnings.map(w => html`<li key=${w}>Warning: ${w}</li>`)}</ul>`
+        : html`<p class="sub" style=${{ margin: "6px 0 0" }}>Every stage's latest run succeeded, every error-level data test passed, all stations are fresh and every narrative passed validation.</p>`}
+    </div>
+    <h2>At a glance</h2>
+    <div class="tiles">
+      ${[[DATA.stations.length, "airport stations, resolved from NOAA's metadata"],
+         [`${DATA.window.start_date} → ${DATA.window.end_date}`, "window"],
+         [obs.toLocaleString(), "station-days in the window"],
+         [latest, "latest observation"],
+         [`${tests.filter(t => t.status === "pass").length}/${tests.length}`, "dbt data tests passing"],
+         [`${passed}/${n.length}`, "narratives passing validation"]].map(([v, l]) => html`
+        <div class="card tile" key=${l}><div class="value" style=${{ fontSize: String(v).length > 12 ? 17 : 26 }}>${v}</div><div class="label">${l}</div></div>`)}
+    </div>
+    <h2>Latest run of each stage</h2>
+    <div class="card scroll"><table><thead><tr><th>Stage</th><th>Status</th><th>Started (UTC)</th><th class="num">Seconds</th><th>Error</th></tr></thead>
+      <tbody>${DATA.runs.map(r => html`<tr key=${r.command}><td>${r.command}</td><td><${Badge} s=${r.status} /></td><td>${r.started_at}</td><td class="num">${fmt(r.seconds, 0)}</td><td>${r.error || ""}</td></tr>`)}</tbody></table></div>
+    <h2>Stations</h2>
+    <div class="card scroll"><table><thead><tr><th>City</th><th>Station</th><th>Elements reported</th><th class="num">Candidates in metadata</th><th>Why the others lost</th></tr></thead>
+      <tbody>${DATA.stations.map(s => html`<tr key=${s.city}><td>${s.city}, ${s.province}</td><td>${s.station_name}<div class="muted">${s.station_id} · WMO ${s.wmo_id || "–"} · ${fmt(s.elevation_m, 0)} m</div></td>
+        <td>${s.elements_reported}</td><td class="num">${s.candidates}</td>
+        <td class="sub">${s.rejected_airport} not airports, ${s.rejected_coverage} without the required elements in the window, ${s.ranked_lower} ranked lower</td></tr>`)}</tbody></table></div>
+  </div>`;
+}
+
+function Quality() {
+  const cities = DATA.stations.map(s => s.city);
+  const elements = DATA.elements.map(e => e.element);
+  const cell = (city, el) => DATA.quality.find(q => q.city === city && q.element === el);
+  const shade = v => v === null || v === undefined ? ["transparent", "var(--muted)"]
+    : v >= 0.999 ? ["var(--seq-6)", "#fff"] : v >= 0.99 ? ["var(--seq-5)", "#fff"] : v >= 0.97 ? ["var(--seq-4)", "#fff"]
+    : v >= 0.95 ? ["var(--seq-3)", "#0b0b0b"] : v >= 0.9 ? ["var(--seq-2)", "#0b0b0b"] : ["var(--seq-1)", "#0b0b0b"];
+  return html`<div>
+    <h2>Completeness over the window</h2>
+    <p class="sub">Share of expected days with a usable value, or a legitimate "nothing to report": gusts below ~31 km/h and zero snow depth aren't reported by Environment Canada, so their absence isn't missing data.</p>
+    <div class="card scroll"><table class="heat"><thead><tr><th style=${{ textAlign: "left" }}>City</th>${elements.map(e => html`<th key=${e} title=${DATA.elements.find(x => x.element === e).label}>${e}</th>`)}<th>Freshness</th></tr></thead>
+      <tbody>${cities.map(c => {
+        const worst = DATA.quality.filter(q => q.city === c && !["not_applicable", "not_expected"].includes(q.freshness)).map(q => q.freshness);
+        const fresh = worst.includes("stale") ? "stale" : worst.includes("lagging") ? "lagging" : "fresh";
+        return html`<tr key=${c}><td style=${{ textAlign: "left", fontWeight: 600 }}>${c}</td>${elements.map(e => { const q = cell(c, e); const [bg, fg] = shade(q?.completeness);
+          return html`<td key=${e} style=${{ background: bg, color: fg }} title=${q ? `${q.valid_days} valid, ${q.trace_days} trace, ${q.missing_days} missing, ${q.not_reported_days} not reported, ${q.qc_failed_days + q.out_of_bounds_days} quarantined` : ""}>${q ? pct(q.completeness) : "–"}</td>`; })}
+          <td><${Badge} s=${fresh} /></td></tr>`; })}</tbody></table>
+      <div class="legend" style=${{ marginTop: 8 }}>${[["≥ 99.9%", "--seq-6"], ["≥ 99%", "--seq-5"], ["≥ 97%", "--seq-4"], ["≥ 95%", "--seq-3"], ["≥ 90%", "--seq-2"], ["< 90%", "--seq-1"]].map(([l, v]) =>
+        html`<span key=${l}><i class="sw box" style=${{ background: `var(${v})` }}></i>${l}</span>`)}</div></div>
+    <h2>Status of every expected day</h2>
+    <div class="card scroll"><table><thead><tr><th>City</th><th>Element</th><th class="num">Expected</th><th class="num">Valid</th><th class="num">Trace</th><th class="num">Missing</th><th class="num">Not reported</th><th class="num">Quarantined</th><th>Latest usable</th></tr></thead>
+      <tbody>${DATA.quality.filter(q => q.expected_days > 0).map(q => html`<tr key=${q.city + q.element}><td>${q.city}</td><td>${q.element}</td><td class="num">${q.expected_days}</td><td class="num">${q.valid_days}</td>
+        <td class="num">${q.trace_days}</td><td class="num">${q.missing_days}</td><td class="num">${q.not_reported_days}</td><td class="num">${q.qc_failed_days + q.out_of_bounds_days}</td><td>${q.last_usable_date || "–"}</td></tr>`)}</tbody></table></div>
+    <h2>What NOAA changed</h2>
+    <p class="sub">Every load is compared row by row with the previous one. Revisions and removals of past dates show NOAA correcting history, which date-based incremental loading would miss.</p>
+    <div class="card scroll"><table><thead><tr><th>Run</th><th>City</th><th class="num">New rows</th><th class="num">Revised values</th><th class="num">Flag-only revisions</th><th class="num">Removed</th><th class="num">Historical</th></tr></thead>
+      <tbody>${DATA.changes.map(c => html`<tr key=${c.run_id + c.city}><td>${c.changed_at}</td><td>${c.city || "–"}</td><td class="num">${c.inserted.toLocaleString()}</td><td class="num">${c.value_revisions}</td><td class="num">${c.flag_revisions}</td><td class="num">${c.deleted}</td><td class="num">${c.historical_changes}</td></tr>`)}</tbody></table></div>
+  </div>`;
+}
+
+function Facts({ facts, cited }) {
+  const used = new Set((cited || []).map(c => c.element));
+  return html`<table class="facts"><thead><tr><th>Fact</th><th class="num">Value</th><th>Status</th><th>Cited</th></tr></thead>
+    <tbody>${(facts || []).map(f => html`<tr key=${f.element}><td>${f.label} <span class="muted">${f.element}</span></td>
+      <td class="num">${f.value === null ? "–" : `${fmt(f.value)} ${f.unit}`}</td><td>${f.status}</td><td>${used.has(f.element) ? "✓" : ""}</td></tr>`)}</tbody></table>`;
+}
+
+function Narratives() {
+  const all = DATA.narratives || [];
+  const cities = ["All", ...DATA.stations.map(s => s.city)];
+  const [city, setCity] = useState("All");
+  const [open, setOpen] = useState(null);
+  const shown = all.filter(n => city === "All" || n.city === city);
+  if (!all.length) return html`<p class="sub">No narratives yet: run <code>wx narrate</code>.</p>`;
+  const passed = all.filter(n => n.passed).length;
+  return html`<div>
+    <div class="controls"><div class="seg" role="group" aria-label="City">${cities.map(c => html`<button key=${c} class=${c === city ? "on" : ""} onClick=${() => setCity(c)}>${c}</button>`)}</div>
+      <span class="sub">${passed}/${all.length} passed validation · ${all[0].provider} ${all[0].model} · ${all[0].prompt_version}</span></div>
+    <div class="narr">${shown.map(n => { const id = n.city + n.date; return html`<div class="card" key=${id}>
+      <div class="meta"><b style=${{ color: "var(--ink)" }}>${n.city}</b><span>${dayLabel(n.date)}</span><${Badge} s=${n.passed ? "pass" : "fail"} label=${n.passed ? "Matches the data" : "Failed validation"} />
+        ${n.failed_checks && html`<span>${n.failed_checks}</span>`}${n.warnings && html`<span class="muted">warnings: ${n.warnings}</span>`}
+        <button class="link" onClick=${() => setOpen(open === id ? null : id)}>${open === id ? "Hide facts and checks" : "Facts and checks"}</button></div>
+      <p>${n.narrative}</p>
+      ${open === id && html`<div class="grid2"><div><h3>Facts sent to the model</h3><${Facts} facts=${n.facts} cited=${n.cited} /></div>
+        <div><h3>Validation</h3><table><tbody>${(n.checks || []).map(c => html`<tr key=${c.name}><td>${c.name}</td><td><${Badge} s=${c.passed ? "pass" : c.severity === "warn" ? "warn" : "fail"} label=${c.passed ? "pass" : c.severity} /></td><td class="sub">${c.detail}</td></tr>`)}</tbody></table></div></div>`}
+    </div>`; })}</div>
+  </div>`;
+}
+
+function Evaluation() {
+  const runs = DATA.evals || [];
+  if (!runs.length) return html`<p class="sub">No evaluations yet: run <code>wx eval</code>.</p>`;
+  const cases = runs[runs.length - 1].results.map(r => r.case_id);
+  return html`<div>
+    <h2>Prompt versions on the evaluation set</h2>
+    <p class="sub">Eleven real station-days chosen because they're hard (evals/cases.yml). Factual checks are the production validation; style checks are scored here only.</p>
+    <div class="card scroll"><table><thead><tr><th>Prompt</th><th>Model</th><th class="num">Passed</th><th class="num">Style issues</th><th class="num">Avg. length</th><th class="num">Tokens in + out</th><th>When (UTC)</th></tr></thead>
+      <tbody>${runs.map(r => html`<tr key=${r.eval_id}><td>${r.prompt_version}</td><td>${r.model}</td><td class="num">${r.passed}/${r.cases}</td><td class="num">${r.style_issues}</td><td class="num">${fmt(r.avg_chars, 0)} chars</td><td class="num">${r.input_tokens} + ${r.output_tokens}</td><td>${r.evaluated_at}</td></tr>`)}</tbody></table></div>
+    <h2>Case by case</h2>
+    <div class="narr">${cases.map(id => html`<div class="card" key=${id}><h3>${id}</h3><div class="eval-pair">
+      ${runs.map(run => { const r = run.results.find(x => x.case_id === id); if (!r) return null; return html`<div key=${run.eval_id}>
+        <div class="meta"><span>${run.prompt_version.split("@")[0]}</span><${Badge} s=${r.passed ? "pass" : "fail"} />${r.style_issues && html`<span class="muted">style: ${r.style_issues}</span>`}</div>
+        <p style=${{ margin: "6px 0" }}>${r.narrative}</p>${r.details && html`<div class="sub">${r.details}</div>`}</div>`; })}
+    </div></div>`)}</div>
+  </div>`;
+}
+
+function Operations() {
+  const dbt = DATA.dbt || [], calls = DATA.llm_calls || [];
+  const counts = {};
+  dbt.forEach(d => { const k = `${d.resource_type} ${d.status}`; counts[k] = (counts[k] || 0) + 1; });
+  const problems = dbt.filter(d => ["error", "fail", "warn"].includes(d.status));
+  const slowest = dbt.filter(d => d.resource_type === "model").sort((a, b) => b.seconds - a.seconds).slice(0, 8);
+  return html`<div>
+    <h2>dbt build</h2>
+    <div class="card"><p class="sub" style=${{ marginTop: 0 }}>${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(" · ")}</p>
+      ${problems.length ? html`<table><tbody>${problems.map(p => html`<tr key=${p.name}><td>${p.name}</td><td><${Badge} s=${p.status === "warn" ? "warn" : "error"} /></td><td class="num">${p.failures ?? ""}</td><td class="sub">${p.message || ""}</td></tr>`)}</tbody></table>`
+        : html`<p style=${{ margin: 0 }}><${Badge} s="pass" label="No failing or warning tests" /></p>`}
+      <h3 style=${{ marginTop: 14 }}>Slowest models</h3>
+      <table><tbody>${slowest.map(m => html`<tr key=${m.name}><td>${m.name}</td><td class="num">${fmt(m.seconds, 2)} s</td></tr>`)}</tbody></table></div>
+    <h2>LLM calls</h2>
+    <div class="card scroll"><table><thead><tr><th>When (UTC)</th><th>Model</th><th class="num">Station-days</th><th class="num">Tokens in + out</th><th class="num">Seconds</th><th class="num">Attempts</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>${calls.map(c => html`<tr key=${c.run_id + c.call_no}><td>${c.called_at}</td><td>${c.model}</td><td class="num">${c.returned}/${c.station_days}</td><td class="num">${c.input_tokens} + ${c.output_tokens}</td>
+        <td class="num">${fmt(c.seconds)}</td><td class="num">${c.attempts}</td><td><${Badge} s=${c.status === "ok" ? "success" : "error"} label=${c.status} /></td><td class="sub">${c.error || c.notes || ""}</td></tr>`)}</tbody></table></div>
+  </div>`;
+}
+
+const TABS = [["overview", "Overview", Overview], ["weather", "Weather", Weather], ["quality", "Data quality", Quality],
+              ["narratives", "Narratives", Narratives], ["evaluation", "Evaluation", Evaluation], ["operations", "Operations", Operations]];
+
+function App() {
+  const read = () => (location.hash.slice(1) || "overview");
+  const [tab, setTab] = useState(read);
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem("wx-theme") || ""; } catch { return ""; } });
+  useEffect(() => { const f = () => setTab(read()); addEventListener("hashchange", f); return () => removeEventListener("hashchange", f); }, []);
+  useEffect(() => {
+    if (theme) document.documentElement.setAttribute("data-theme", theme); else document.documentElement.removeAttribute("data-theme");
+    try { localStorage.setItem("wx-theme", theme); } catch {}
+  }, [theme]);
+  const Current = (TABS.find(t => t[0] === tab) || TABS[0])[2];
+  const dark = theme ? theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  return html`<main>
+    <header><div><h1>Weather data platform</h1>
+      <div class="sub">NOAA GHCN-Daily for Canada's five largest metro airports · dbt on DuckDB · Gemini narratives validated against the data</div></div>
+      <button class="theme" onClick=${() => setTheme(dark ? "light" : "dark")}>${dark ? "Light" : "Dark"} mode</button></header>
+    <nav class="tabs">${TABS.map(([id, label]) => html`<a key=${id} href=${"#" + id} class=${tab === id ? "active" : ""}>${label}</a>`)}</nav>
+    <${Current} />
+    <footer>Generated by <code>wx report</code> from data/warehouse.duckdb at ${DATA.generated_at}. Source: NOAA NCEI GHCN-Daily v3.35.</footer>
+  </main>`;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+</script>
+</body>
+</html>
