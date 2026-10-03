@@ -117,6 +117,10 @@ flowchart LR
 | `intermediate` | selected stations, elements in scope, station-element coverage, assessed observations | Scope from the metadata; every value scaled and given a quality status |
 | `marts` | `fct_observations` (incremental), `fct_station_day_element`, `mart_station_daily`, `mart_data_quality`, `mart_source_changes`, `mart_narrative_input`, `dim_station`, `dim_element` | What people and the narratives use |
 
+In more detail: [docs/ingestion.md](docs/ingestion.md) walks through `wx ingest` step by step,
+with what each step checks and records and the tests behind it; [docs/dbt_models.md](docs/dbt_models.md)
+lists every model with its grain, purpose and tests.
+
 ## Design decisions
 
 ### Stations come from the metadata
@@ -492,6 +496,6 @@ prompts/                  narrative prompts, versioned
 evals/cases.yml           the evaluation set
 orchestration/            optional Airflow (Dockerfile, compose, DAG)
 tests/                    unit and integration tests (pytest)
-docs/                     NOAA conventions, metadata column reference, example health report
+docs/                     ingestion, dbt models and tests, NOAA conventions, metadata columns, example health report
 src/wx/report_template.html   the results page (React via CDN, data embedded by `wx report`)
 ```
