@@ -92,7 +92,7 @@ To run it on a schedule instead, see [Orchestration](#orchestration-optional).
 |---|---|---|
 | Tutorial | Learning by doing | [Getting started](docs/tutorials/getting-started.md): run it, read the report, query the warehouse, add a city |
 | How-to guides | A specific task | [Add a city](docs/how-to/add-a-city.md), [change the prompt](docs/how-to/change-the-prompt.md), [investigate data issues](docs/how-to/investigate-data-issues.md), [all guides](docs/README.md#how-to-guides) |
-| Reference | Looking something up, grouped like the repo | [CLI](docs/reference/cli.md), [configuration](docs/reference/configuration.md), [ingest](docs/reference/app/ingest.md), [dbt models and tests](docs/reference/dbt/models-and-tests.md), [narratives](docs/reference/llm/narratives.md), [all reference](docs/README.md#reference) |
+| Reference | Looking something up, grouped like the repo | [dbt docs with lineage](https://apmalong.github.io/weather-data-platform/dbt/), [CLI](docs/reference/cli.md), [configuration](docs/reference/configuration.md), [ingest](docs/reference/app/ingest.md), [dbt models and tests](docs/reference/dbt/models-and-tests.md), [narratives](docs/reference/llm/narratives.md), [all reference](docs/README.md#reference) |
 | Explanation | Why it's built this way | [Architecture](docs/explanation/architecture.md), [data quality](docs/explanation/data-quality.md), [narratives](docs/explanation/narratives.md), [all explanation](docs/README.md#explanation) |
 
 This README covers setup, architecture, design decisions and tradeoffs; the docs go into detail.

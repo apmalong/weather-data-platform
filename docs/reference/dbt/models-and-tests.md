@@ -4,7 +4,8 @@ Code: `dbt/` (stage 2, run by `wx transform`). The dbt project turns what `wx in
 the narratives and the report read. `wx transform` runs `dbt build`: 19 models, 69 data tests, 2 unit
 tests and 4 end-of-build hooks (94 nodes). Every column that carries lineage, change or quality
 information is described in [metadata columns](../warehouse/metadata-columns.md); the same descriptions are
-in the warehouse as column comments. Why the tests are placed as they are:
+in the warehouse as column comments. dbt's own docs (every model and column with its type, the tests
+and the lineage graph) are published at [/dbt/](https://apmalong.github.io/weather-data-platform/dbt/). Why the tests are placed as they are:
 [data quality](../../explanation/data-quality.md). SQL style: [code style](../../explanation/code-style.md).
 
 ## Layers
@@ -91,7 +92,7 @@ Four macros run at the end of every build (`on-run-end` in `dbt_project.yml`):
 | `uv run wx transform` | `dbt build`: models, tests, hooks |
 | `uv run wx transform --full-refresh` | Rebuilds the incremental fact from raw |
 | `uv run wx transform --select <selection>` | Any dbt selection, e.g. `marts` |
-| `cd dbt; uv run dbt docs generate --profiles-dir .; uv run dbt docs serve --profiles-dir .` | Browse lineage and docs |
+| `cd dbt; uv run dbt docs generate --profiles-dir .; uv run dbt docs serve --profiles-dir .` | Browse lineage and docs locally (published at [/dbt/](https://apmalong.github.io/weather-data-platform/dbt/)) |
 | `uv run sqlfluff lint dbt/models dbt/tests` | SQL style check (CI) |
 
 `wx transform` reads the config `wx ingest` publishes: after editing `config/pipeline.yml`, run

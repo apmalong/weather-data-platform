@@ -2,14 +2,17 @@ name: docs
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "mkdocs.yml", ".github/workflows/docs.yml"]
+    paths: ["docs/**", "mkdocs.yml", "dbt/**", "config/**", ".github/workflows/docs.yml"]
   pull_request:
-    paths: ["docs/**", "mkdocs.yml", ".github/workflows/docs.yml"]
+    paths: ["docs/**", "mkdocs.yml", "dbt/**", "config/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
-# Builds docs/ into a website with MkDocs Material and publishes it to GitHub Pages
-# (https://apmalong.github.io/weather-data-platform/). --strict fails the build on a broken link or
-# anchor, so a pull request can't publish a broken page. Pull requests build but don't deploy.
+# One GitHub Pages site (https://apmalong.github.io/weather-data-platform/), built from two sources:
+#   /       docs/ with MkDocs Material; --strict fails the build on a broken link or anchor
+#   /dbt/   dbt's own docs (models, columns, tests, lineage), from a freshly built warehouse so the
+#           catalog has every column and type
+# Pages serves one site per repo, so both are built and deployed together here; a second workflow
+# deploying to Pages would overwrite this one. Pull requests build but don't deploy.
 permissions:
   contents: read
   pages: write
@@ -22,14 +25,27 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: "3.12"
           enable-cache: true
-      - run: uv sync --locked --only-group docs
-      - run: uv run --only-group docs mkdocs build --strict
+      - run: uv sync --locked --group docs
+      - name: Build the warehouse (ingest from NOAA, then dbt build) for the dbt catalog
+        run: |
+          uv run wx ingest
+          uv run wx transform
+      - name: dbt docs (one self-contained page)
+        working-directory: dbt
+        run: uv run dbt docs generate --static --profiles-dir .
+      - name: MkDocs site
+        run: uv run mkdocs build --strict
+      - name: Add the dbt docs under /dbt/
+        run: |
+          mkdir -p site/dbt
+          cp dbt/target/static_index.html site/dbt/index.html
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site

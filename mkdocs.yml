@@ -73,6 +73,7 @@ nav:
           - Health report example: reference/app/health-report-example.md
       - dbt:
           - Models and tests: reference/dbt/models-and-tests.md
+          - dbt docs (lineage, columns): https://apmalong.github.io/weather-data-platform/dbt/
       - llm:
           - Narrative stage: reference/llm/narratives.md
       - orchestration:
