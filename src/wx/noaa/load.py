@@ -7,6 +7,8 @@
   new, changed and vanished rows are applied and logged to raw.observation_changes. NOAA revises
   past values and backfills gaps (v3.35 reloaded 17 months of Canadian data at once), so loading
   "dates after the last one" would silently miss changes.
+- Rows that can't be loaded are kept, not just counted: lines the CSV reader rejects, rows for
+  another station and duplicates go to raw.rejected_rows with the reason.
 """
 import time
 from pathlib import Path
@@ -25,6 +27,9 @@ create table if not exists raw.observations (
 create table if not exists raw.observation_changes (
     run_id varchar, station_id varchar, obs_date varchar, element varchar, change varchar,
     old_value varchar, new_value varchar, old_flags varchar, new_flags varchar, changed_at timestamp);
+create table if not exists raw.rejected_rows (
+    run_id varchar, source_file varchar, station_id varchar, line_number bigint, line varchar,
+    reason varchar, rejected_at timestamp);
 """
 
 _FLAGS = "concat_ws('|', coalesce(mflag, ''), coalesce(qflag, ''), coalesce(sflag, ''), coalesce(obs_time, ''))"
@@ -85,12 +90,22 @@ def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: st
     """Merge one station's file into raw.observations; returns counts of read, rejected and changes."""
     started = time.time()
     columns = ", ".join(f"'{name}': 'VARCHAR'" for name in formats.OBSERVATION_COLUMNS)
+    # DuckDB keeps the rejects tables for the whole connection, so clear them: otherwise one station's
+    # rejected lines would be counted again for every station loaded after it.
+    conn.execute("drop table if exists _rejects; drop table if exists _rejects_scan")
     conn.execute(f"""
         create or replace temp table _incoming_all as
         select * from read_csv(?, header = false, columns = {{{columns}}}, ignore_errors = true,
                                store_rejects = true, rejects_table = '_rejects', rejects_scan = '_rejects_scan')
         """, [str(path)])
-    rejected = conn.execute("select count(*) from _rejects").fetchone()[0]
+    now = ops.now()
+    # The reader logs one error per missing column, so a short line has several entries: keep one per
+    # line, with the first error as the reason.
+    conn.execute("""
+        insert into raw.rejected_rows
+        select ?, ?, ?, line, csv_line, arg_min(error_type || ': ' || error_message, coalesce(column_idx, 0)), ?
+        from _rejects group by line, csv_line""", [run_id, path.name, station_id, now])
+    rejected = conn.execute("select count(distinct line) from _rejects").fetchone()[0]
     # A file's rows must belong to its station, and a station/date/element must appear once.
     conn.execute(f"""
         create or replace temp table _incoming as
@@ -102,11 +117,21 @@ def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: st
     foreign = conn.execute("select count(*) from _incoming_all where station_id is distinct from ?",
                            [station_id]).fetchone()[0]
     duplicates = read - foreign - kept
+    line = "concat_ws(',', " + ", ".join(f"coalesce({c}, '')" for c in formats.OBSERVATION_COLUMNS) + ")"
+    conn.execute(f"""
+        insert into raw.rejected_rows
+        select ?, ?, ?, null, {line}, 'row for another station (' || coalesce(station_id, 'none') || ')', ?
+        from _incoming_all where station_id is distinct from ?""", [run_id, path.name, station_id, now, station_id])
+    conn.execute(f"""
+        insert into raw.rejected_rows
+        select ?, ?, ?, null, {line}, 'duplicate of ' || obs_date || ' ' || element || ' (another row was kept)', ?
+        from _incoming_all where station_id = ?
+        qualify row_number() over (partition by obs_date, element order by value) > 1""",
+                 [run_id, path.name, station_id, now, station_id])
     ops.check(conn, run_id, "load", "rows_belong_to_station", station_id, foreign == 0, foreign, 0)
     ops.check(conn, run_id, "load", "unique_station_date_element", station_id, duplicates == 0, duplicates, 0)
     ops.check(conn, run_id, "load", "parseable_rows", station_id, rejected == 0, rejected, 0, severity="warn")
 
-    now = ops.now()
     conn.execute("""
         create or replace temp table _changes as
         select coalesce(i.station_id, o.station_id) as station_id, coalesce(i.obs_date, o.obs_date) as obs_date,

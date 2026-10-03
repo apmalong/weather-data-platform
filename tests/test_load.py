@@ -55,6 +55,25 @@ def test_foreign_and_duplicate_rows_fail_checks(conn, tmp_path):
     assert failed == {"rows_belong_to_station": "1", "unique_station_date_element": "1"}
 
 
+def test_rows_that_cant_be_loaded_are_kept_with_the_reason(conn, tmp_path):
+    rows = [f"{STATION},20260101,TMAX,-52,,,C,",
+            f"{STATION},20260102,TMAX",                     # too few columns: the reader rejects it
+            f"{STATION},20260103,TMAX,-50,,,C,,extra",      # too many columns
+            f"{STATION},20260101,TMAX,-51,,,C,",            # duplicate of the first row
+            "CAN07025251,20260101,TMAX,-40,,,C,"]           # another station's row
+    counts = load.load_observations(conn, "r1", STATION, write(tmp_path, "v.csv.gz", rows), "sha1")
+    assert (counts["rejected"], counts["inserted"]) == (2, 1)   # one count per line, not per missing column
+    kept = conn.execute("""select line_number, line, reason from raw.rejected_rows
+                           where run_id = 'r1' and source_file = 'v.csv.gz' order by line_number, reason""").fetchall()
+    assert [(n, line) for n, line, _ in kept] == [
+        (2, f"{STATION},20260102,TMAX"), (3, f"{STATION},20260103,TMAX,-50,,,C,,extra"),
+        (None, f"{STATION},20260101,TMAX,-52,,,C,"), (None, "CAN07025251,20260101,TMAX,-40,,,C,")]
+    reasons = [r for _, _, r in kept]
+    assert reasons[0].startswith("MISSING COLUMNS") and reasons[1].startswith("TOO MANY COLUMNS")
+    assert reasons[2] == "duplicate of 20260101 TMAX (another row was kept)"
+    assert reasons[3] == "row for another station (CAN07025251)"
+
+
 def test_other_stations_are_untouched(conn, tmp_path):
     montreal = write(tmp_path, "m.csv.gz", ["CAN07025251,20260101,TMAX,-40,,,C,"])
     toronto = write(tmp_path, "t.csv.gz", [f"{STATION},20260101,TMAX,-52,,,C,"])
@@ -62,3 +81,12 @@ def test_other_stations_are_untouched(conn, tmp_path):
     load.load_observations(conn, "r2", STATION, toronto, "sha2")
     assert conn.execute("select count(*) from raw.observations").fetchone()[0] == 2
     assert conn.execute("select count(*) from raw.observation_changes where change = 'delete'").fetchone()[0] == 0
+
+
+def test_rejected_lines_dont_carry_over_to_the_next_file(conn, tmp_path):
+    """DuckDB keeps its rejects table per connection; one station's bad line mustn't count for the next."""
+    bad = write(tmp_path, "t.csv.gz", [f"{STATION},20260101,TMAX,-52,,,C,", f"{STATION},20260102,TMAX"])
+    good = write(tmp_path, "m.csv.gz", ["CAN07025251,20260101,TMAX,-40,,,C,"])
+    assert load.load_observations(conn, "r1", STATION, bad, "sha1")["rejected"] == 1
+    assert load.load_observations(conn, "r1", "CAN07025251", good, "sha2")["rejected"] == 0
+    assert conn.execute("select count(*) from raw.rejected_rows").fetchone()[0] == 1

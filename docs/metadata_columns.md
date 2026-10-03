@@ -49,6 +49,7 @@ The `raw` schema keeps NOAA's data as published, as text, and adds these columns
 | `change` | `raw.observation_changes` | `insert`, `update` or `delete`: one row for every difference found between loads. |
 | `old_value`, `new_value`, `old_flags`, `new_flags` | `raw.observation_changes` | The value and flags (`mflag\|qflag\|sflag\|obs_time`) before and after. `marts.mart_source_changes` summarises these per run and city. |
 | `changed_at` | `raw.observation_changes`, `mart_source_changes` | When the change was detected. |
+| `line_number`, `line`, `reason` | `raw.rejected_rows` | A row that couldn't be loaded, kept rather than only counted: the line as published (rebuilt from its columns for rows the reader did parse), its line number when the reader rejected it, and why: the parser's error (`MISSING COLUMNS: …`), `row for another station (…)` or `duplicate of … (another row was kept)`. |
 
 ## NOAA's own flags
 

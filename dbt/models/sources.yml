@@ -41,6 +41,15 @@ sources:
           - {name: old_flags, description: "Flags before the change, as mflag|qflag|sflag|obs_time."}
           - {name: new_flags, description: "Flags after the change, as mflag|qflag|sflag|obs_time."}
           - {name: changed_at, description: "{{ doc('changed_at') }}"}
+      - name: rejected_rows
+        description: Rows that couldn't be loaded, kept with the reason instead of only counted.
+        columns:
+          - {name: run_id, description: "{{ doc('run_id') }}"}
+          - {name: source_file, description: "{{ doc('source_file') }}"}
+          - {name: line_number, description: Line in the file, for lines the CSV reader rejected; null for rows it parsed.}
+          - {name: line, description: "The line as published, or rebuilt from its columns for rows the reader parsed."}
+          - {name: reason, description: "The parser's error, 'row for another station (…)' or 'duplicate of … (another row was kept)'."}
+          - {name: rejected_at, description: When the row was rejected. UTC.}
       - name: stations
         description: ghcnd-stations.txt, cut at the readme's column positions.
         columns:

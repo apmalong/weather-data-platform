@@ -203,8 +203,8 @@ What's wrong with the raw data, what the pipeline does about it, and where:
 |---|---|---|
 | Two IDs per Canadian station since v3.35; the old `CA0` files stopped updating in April 2024 | Resolve stations to the current `CAN0` IDs from the metadata | `wx ingest` (resolve) |
 | Fixed-width reference files | Parse with column positions read from NOAA's readme; stop if the readme's layouts change | `wx ingest` (load) |
-| Malformed observation rows | Read everything as text; count rejected rows instead of failing the load | `wx ingest` (load) |
-| Rows for another station, or a station/date/element twice | Keep one row per station/date/element and record how many were dropped | `wx ingest` (load) |
+| Malformed observation rows | Read everything as text; a line the reader can't parse is kept in `raw.rejected_rows` with the parser's error, instead of failing the load | `wx ingest` (load) |
+| Rows for another station, or a station/date/element twice | Keep one row per station/date/element; the others go to `raw.rejected_rows` with the reason | `wx ingest` (load) |
 | Dates and values as text; sentinels like elevation `-999.9` | Cast with `try_cast`: anything that doesn't parse becomes `unparseable`, not a failed build; sentinels become null | staging |
 | Values in tenths (°C ×10, mm ×10) | Scale from the readme's element definitions, at fixed precision (`decimal(12,1)`) so there's no float noise | `int_observations__assessed` |
 | NOAA quality flags; physically impossible values | Mark them `qc_failed` or `out_of_bounds` (bounds in config); keep the raw value but exclude it from usable values | `int_observations__assessed` |
@@ -418,7 +418,19 @@ so, and the task retries.
 - **Data checks:** turn the one-off Environment Canada comparison into a scheduled check on a sample
   of station-days. That would also have caught the old files' gust units automatically. Surface
   NOAA's change history (`status.txt`) in the health report.
-- **Scale:** partition `fct_observations` by year; move to a client-server warehouse for parallel stages.
+- **Scale and data lifecycle:**
+  - **A client-server warehouse** (BigQuery, Snowflake or Postgres) instead of one DuckDB file, so
+    stages, readers (the explore UI, Airflow) and writers can run at the same time. The dbt models
+    carry over with a profile change; the loaders' DuckDB-specific SQL (`read_csv`, the merge) would
+    need porting.
+  - **Partitions:** `raw.observations` and `fct_observations` by year, clustered by station, so
+    incremental builds and window queries read only the partitions they need.
+  - **Retention and archiving:** decide how long to keep raw history outside the window, the change
+    log, rejected rows, superseded narrative attempts, downloaded files and the `ops` ledger. Archive
+    old partitions to cheap storage (Parquet in object storage) rather than deleting them, and prune
+    run metadata (dbt node results, LLM calls) after a set period, keeping daily aggregates.
+  - **More data observability:** anomaly detection on volumes and value distributions per station and
+    element (today's check is only a row-count swing), dbt source freshness, and column-level lineage.
 
 ## Repository layout
 
