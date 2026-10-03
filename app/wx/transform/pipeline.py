@@ -11,8 +11,8 @@ import uuid
 
 from dbt.cli.main import dbtRunner
 
-from wx import ops
 from wx.config import ROOT, Config
+from wx.observe import ops
 
 DBT_DIR = ROOT / "dbt"
 

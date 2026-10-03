@@ -12,9 +12,9 @@ dbt reads only the warehouse, so `dbt build` on its own sees the same scope as `
 import logging
 from datetime import date
 
-from wx import ops
 from wx.config import Config
-from wx.noaa import fetch, formats, load, resolve
+from wx.ingest.noaa import fetch, formats, load, resolve
+from wx.observe import ops
 
 log = logging.getLogger(__name__)
 

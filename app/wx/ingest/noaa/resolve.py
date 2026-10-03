@@ -23,8 +23,8 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-from wx import ops
 from wx.config import City, Config
+from wx.observe import ops
 
 
 class ResolutionError(RuntimeError):

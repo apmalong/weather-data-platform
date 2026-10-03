@@ -24,11 +24,10 @@ services:
       WX_DATA_DIR: /opt/wx/data
       DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
     volumes:
-      - ../src:/opt/wx/src:ro                 # editable install: code changes need no rebuild
+      - ../app:/opt/wx/app:ro                 # editable install: code changes need no rebuild
       - ../config:/opt/wx/config:ro
       - ../dbt:/opt/wx/dbt
-      - ../prompts:/opt/wx/prompts:ro
-      - ../evals:/opt/wx/evals:ro
+      - ../llm:/opt/wx/llm:ro
       - ../orchestration/dags:/opt/wx/orchestration/dags:ro
       - ../data:/opt/wx/data
     ports: ["8080:8080"]

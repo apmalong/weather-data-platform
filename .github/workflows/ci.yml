@@ -22,7 +22,7 @@ jobs:
       - run: uv sync --locked
       - name: Python style (black formats, ruff lints)
         run: |
-          uv run black --check src tests orchestration
+          uv run black --check app orchestration
           uv run ruff check .
       - name: SQL style (Matt Mazur's guide, via sqlfluff)
         run: uv run sqlfluff lint dbt/models dbt/tests

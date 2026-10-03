@@ -2,7 +2,7 @@ import gzip
 
 import pytest
 
-from wx.noaa import load
+from wx.ingest.noaa import load
 
 STATION = "CAN06158731"
 

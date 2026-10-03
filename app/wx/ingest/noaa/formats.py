@@ -1,7 +1,7 @@
 """NOAA GHCN-Daily file formats, taken from readme.txt.
 
 The fixed-width layouts below are the column tables in readme.txt sections IV-VII (1-based,
-inclusive). tests/test_formats.py re-reads those tables from the downloaded readme and fails if
+inclusive). app/tests/test_formats.py re-reads those tables from the downloaded readme and fails if
 NOAA ever changes a layout, so the copy here can't silently drift.
 
 The element catalog (code, description, unit, scale) is parsed from the readme's ELEMENT section,

@@ -18,10 +18,10 @@ import logging
 import os
 import time
 
-from wx import ops
 from wx.config import ROOT, Config
 from wx.narrate import validate
 from wx.narrate.providers import GeminiProvider, MockProvider, Provider, ProviderError, QuotaExhausted, StationDay
+from wx.observe import ops
 
 log = logging.getLogger(__name__)
 

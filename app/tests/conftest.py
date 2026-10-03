@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from wx import ops
-from wx.noaa import load
+from wx.ingest.noaa import load
+from wx.observe import ops
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from wx import ops
+from wx.observe import ops
 
 
 def test_connect_creates_the_warehouse_folder(tmp_path):

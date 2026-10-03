@@ -1,4 +1,4 @@
-"""Evaluate a narrative prompt and model on the fixed cases in evals/cases.yml.
+"""Evaluate a narrative prompt and model on the fixed cases in llm/evals/cases.yml.
 
 Validation (validate.py) checks every production narrative; evaluation measures a prompt or model
 change *before* it ships, on cases chosen because they're hard. Each case runs through the
@@ -6,7 +6,7 @@ provider with the prompt under test (no cache), is scored with the same validati
 style checks, and the run is stored in ops.eval_runs / ops.eval_results for comparison:
 
     wx eval                                  # current prompt and provider
-    wx eval --prompt prompts/narrative_v2.md # a candidate prompt
+    wx eval --prompt llm/prompts/narrative_v2.md # a candidate prompt
 """
 
 import json
@@ -16,12 +16,12 @@ from pathlib import Path
 
 import yaml
 
-from wx import ops
 from wx.config import ROOT, Config
 from wx.narrate import pipeline, validate
 from wx.narrate.providers import Provider, StationDay
+from wx.observe import ops
 
-CASES = ROOT / "evals" / "cases.yml"
+CASES = ROOT / "llm" / "evals" / "cases.yml"
 
 DDL = """
 create table if not exists ops.eval_runs (

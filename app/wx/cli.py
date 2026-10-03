@@ -3,7 +3,7 @@
 wx ingest       download NOAA files, resolve stations, load raw
 wx transform    dbt build: models and data-quality tests
 wx narrate      daily narratives with Gemini (or the offline mock), validated against the data
-wx eval         score a narrative prompt/model on the hard cases in evals/cases.yml
+wx eval         score a narrative prompt/model on the hard cases in llm/evals/cases.yml
 wx health       one report on every stage: runs, checks, dbt tests, data quality, narratives
 wx report       one HTML page with the results: weather, data quality, narratives, evaluation, ops
 wx run          ingest, transform, narrate, report
@@ -79,7 +79,7 @@ def _eval(args, cfg) -> None:
 def _health(args, cfg) -> None:
     from pathlib import Path
 
-    from wx import health
+    from wx.observe import health
 
     report = health.build(cfg)
     text = report.markdown()
@@ -93,14 +93,14 @@ def _health(args, cfg) -> None:
 def _report(args, cfg) -> None:
     from pathlib import Path
 
-    from wx import report
+    from wx.observe import report
 
     path = report.render(cfg, Path(args.out) if args.out else None)
     print(f"report written to {path.resolve()}")
 
 
 def _reset(args, cfg) -> None:
-    from wx import reset
+    from wx.observe import reset
 
     what = reset.describe(cfg, args.all, args.narratives)
     if not what:
@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> None:
     narrate = commands.add_parser("narrate", help="daily narratives, validated against the data")
     narrate.add_argument("--days", type=int, help="override narratives.days")
     narrate.add_argument("--provider", choices=["auto", "gemini", "mock"], help="override narratives.provider")
-    evaluation = commands.add_parser("eval", help="score a prompt/model on evals/cases.yml")
+    evaluation = commands.add_parser("eval", help="score a prompt/model on llm/evals/cases.yml")
     evaluation.add_argument("--prompt", help="prompt file to evaluate (default: narratives.prompt)")
     evaluation.add_argument("--provider", choices=["auto", "gemini", "mock"])
     health = commands.add_parser("health", help="report on every stage from the ops ledger and marts")

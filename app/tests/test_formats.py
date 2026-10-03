@@ -1,4 +1,4 @@
-from wx.noaa import formats
+from wx.ingest.noaa import formats
 
 
 def test_fixed_width_layouts_match_the_readme(readme):

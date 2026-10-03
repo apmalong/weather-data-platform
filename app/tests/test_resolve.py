@@ -4,7 +4,7 @@ import pytest
 
 from wx import config
 from wx.config import City
-from wx.noaa.resolve import ResolutionError, resolve, resolve_city
+from wx.ingest.noaa.resolve import ResolutionError, resolve, resolve_city
 
 START, END = date(2024, 10, 1), date(2026, 9, 30)
 CORE = ["TMAX", "TMIN", "PRCP"]

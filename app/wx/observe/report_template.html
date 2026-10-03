@@ -355,7 +355,7 @@ function Evaluation() {
   const cases = runs[runs.length - 1].results.map(r => r.case_id);
   return html`<div>
     <h2>Prompt versions on the evaluation set</h2>
-    <p class="sub">Eleven real station-days chosen because they're hard (evals/cases.yml). Factual checks are the production validation; style checks are scored here only.</p>
+    <p class="sub">Eleven real station-days chosen because they're hard (llm/evals/cases.yml). Factual checks are the production validation; style checks are scored here only.</p>
     <div class="card scroll"><table><thead><tr><th>Prompt</th><th>Model</th><th class="num">Passed</th><th class="num">Style issues</th><th class="num">Avg. length</th><th class="num">Tokens in + out</th><th>When (UTC)</th></tr></thead>
       <tbody>${runs.map(r => html`<tr key=${r.eval_id}><td>${r.prompt_version}</td><td>${r.model}</td><td class="num">${r.passed}/${r.cases}</td><td class="num">${r.style_issues}</td><td class="num">${fmt(r.avg_chars, 0)} chars</td><td class="num">${r.input_tokens} + ${r.output_tokens}</td><td>${r.evaluated_at}</td></tr>`)}</tbody></table></div>
     <h2>Case by case</h2>

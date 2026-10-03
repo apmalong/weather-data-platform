@@ -14,8 +14,8 @@
 import time
 from pathlib import Path
 
-from wx import ops
-from wx.noaa import formats
+from wx.ingest.noaa import formats
+from wx.observe import ops
 
 RAW_DDL = """
 create schema if not exists raw;

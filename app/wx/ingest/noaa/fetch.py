@@ -13,7 +13,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from wx import ops
+from wx.observe import ops
 
 USER_AGENT = "weather-data-platform (github.com/apmalong/weather-data-platform)"
 

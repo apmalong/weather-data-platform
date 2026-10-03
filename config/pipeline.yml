@@ -79,7 +79,7 @@ narratives:
   # `wx eval` before changing a model here. gemini-2.5-flash(-lite) were retired for new keys in
   # October 2026.
   models: [gemini-3.5-flash-lite, gemini-3.8-flash]
-  prompt: prompts/narrative_v3.md   # older versions kept for comparison: `wx eval --prompt prompts/narrative_v1.md`
+  prompt: llm/prompts/narrative_v3.md   # older versions kept for comparison: `wx eval --prompt llm/prompts/narrative_v1.md`
   days: 14                      # most recent days with data, per station
   batch_size: 10                # station-days per request
   # Free-tier limits are per project, shown only in AI Studio, and change; these stay well under

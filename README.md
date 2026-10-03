@@ -54,7 +54,7 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | `wx ingest` | Downloads NOAA's reference files, resolves each configured city to a station from the metadata, downloads and loads its observations (skipping unchanged files) |
 | `wx transform` | `dbt build`: 19 models across staging, intermediate and marts, plus 69 data tests and 2 unit tests. `--full-refresh` rebuilds from raw |
 | `wx narrate` | Daily narratives for the last 14 days, in batches, validated against the data; cached, so reruns only do new or revised days. Skips stations whose data is stale |
-| `wx eval` | Scores a narrative prompt and model on hard cases (`evals/cases.yml`): `--prompt prompts/narrative_v1.md` |
+| `wx eval` | Scores a narrative prompt and model on hard cases (`llm/evals/cases.yml`): `--prompt llm/prompts/narrative_v1.md` |
 | `wx health` | One report: runs, checks, dbt tests, data quality, NOAA's revisions, narratives, evaluation. `--strict` exits 1 on errors |
 | `wx report` | Writes `data/report.html`: one self-contained page, data embedded, nothing to install or serve |
 | `wx run` | `ingest`, `transform`, `narrate`, `report` |
@@ -173,7 +173,7 @@ order rows come back in. Every candidate and the reason it won or lost is record
 
 This resolves exactly the five airports in the brief. Adding a sixth city is one line,
 `- {city: Edmonton, province: 'AB'}`, and nothing else changes: the station, its elements, the dbt
-models, the data tests and the narratives all follow (`tests/test_resolve.py` covers this).
+models, the data tests and the narratives all follow (`app/tests/test_resolve.py` covers this).
 
 **Tested beyond the brief.** I ran the rules against the full metadata for 20 more Canadian cities and
 15 US cities (`country: US`, state as `province`):
@@ -514,20 +514,28 @@ so, and the task retries.
   sqlfluff (`.sqlfluff`); [docs/dbt_models.md](docs/dbt_models.md#sql-style) lists where the guide
   needs judgement and how it's applied.
 
-CI fails on any violation: `uv run black --check src tests orchestration`, `uv run ruff check .`,
+CI fails on any violation: `uv run black --check app orchestration`, `uv run ruff check .`,
 `uv run sqlfluff lint dbt/models dbt/tests`.
 
 ## Repository layout
 
+One folder per part of the workflow. `app/` is the code; `dbt/` and `llm/` are what it runs, one per
+stage.
+
 ```
-config/pipeline.yml       the only file to edit for scope, policy and narrative settings
-src/wx/                   ingest, transform, narrate, eval, health, CLI
-src/wx/noaa/              file formats (from the readme), downloads, loading, station resolution
-dbt/                      staging -> intermediate -> marts, tests, macros (no packages to install)
-prompts/                  narrative prompts, versioned
-evals/cases.yml           the evaluation set
-orchestration/            optional Airflow (Dockerfile, compose, DAG)
-tests/                    66 unit and integration tests (pytest); dbt tests live in dbt/
-docs/                     ingestion, dbt models and tests, NOAA conventions, metadata columns, example health report
-src/wx/report_template.html   the results page (React via CDN, data embedded by `wx report`)
+config/pipeline.yml        the one file to edit: cities, window, element rules, quality, narratives
+app/                       the Python pipeline: the wx CLI and its stages
+  wx/
+    cli.py  config.py
+    ingest/                1. NOAA -> raw: pipeline.py, and noaa/ (formats, downloads, loading, stations)
+    transform/             2. runs the dbt project
+    narrate/               3. marts -> narratives: pipeline, providers, validation, evaluation
+    observe/               across stages: ops ledger, health, report (report_template.html), reset
+  tests/                   66 unit and integration tests (pytest)
+dbt/                       2. the SQL: staging -> intermediate -> marts, tests, macros (no packages)
+llm/                       3. what the narrative stage reads
+  prompts/                 narrative prompts, versioned (v3 is current)
+  evals/cases.yml          the evaluation set
+orchestration/             optional Airflow: Dockerfile, compose, DAG
+docs/                      ingestion, dbt models and tests, NOAA conventions, metadata columns, example health report
 ```

@@ -3,9 +3,10 @@ import json
 import duckdb
 import pytest
 
-from wx import config, ops
+from wx import config
 from wx.narrate import pipeline
 from wx.narrate.providers import MockProvider
+from wx.observe import ops
 
 FACTS = [
     {"element": "TMAX", "label": "Maximum temperature", "value": 21.4, "unit": "degrees C", "status": "valid"},

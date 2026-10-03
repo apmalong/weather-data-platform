@@ -12,8 +12,8 @@ warnings, rejected rows, narratives deferred by the free tier's quota).
 import json
 from dataclasses import dataclass, field
 
-from wx import ops
 from wx.config import Config
+from wx.observe import ops
 
 
 @dataclass
@@ -227,7 +227,7 @@ def _narratives(conn, r: Report) -> None:
         r.table(["city", "date", "failed checks", "narrative"], failed)
         r.errors.append(f"{stats[0] - stats[1]} current narratives failed validation")
     if _has(conn, "ops", "eval_runs"):
-        r.lines += ["", "Evaluation on evals/cases.yml, latest run per prompt version:", ""]
+        r.lines += ["", "Evaluation on llm/evals/cases.yml, latest run per prompt version:", ""]
         r.table(
             ["prompt", "model", "passed", "style issues", "avg chars", "when (UTC)"],
             conn.execute("""

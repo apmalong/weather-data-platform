@@ -2,8 +2,9 @@
 
 `wx ingest` downloads NOAA's files, decides which stations to use, and loads both into the
 warehouse's `raw` and `config` schemas. Everything it does is recorded in the `ops` schema. dbt
-takes over from there ([dbt_models.md](dbt_models.md)). The code is in `src/wx/ingest.py` and
-`src/wx/noaa/`.
+takes over from there ([dbt_models.md](dbt_models.md)). The code is in `app/wx/ingest/`:
+`pipeline.py` runs the steps, and `noaa/` holds NOAA's formats, downloads, loading and station
+resolution. The tests below are in `app/tests/`.
 
 ## What it does, in order
 

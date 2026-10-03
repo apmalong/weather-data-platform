@@ -10,7 +10,7 @@ USER airflow
 
 WORKDIR /opt/wx
 COPY --chown=airflow pyproject.toml uv.lock README.md ./
-COPY --chown=airflow src ./src
+COPY --chown=airflow app ./app
 ENV UV_PROJECT_ENVIRONMENT=/opt/wx/.venv UV_LINK_MODE=copy
 RUN uv sync --locked --no-dev
 WORKDIR /opt/airflow

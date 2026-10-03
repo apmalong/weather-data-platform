@@ -1,7 +1,8 @@
 import duckdb
 import pytest
 
-from wx import config, reset
+from wx import config
+from wx.observe import reset
 
 
 @pytest.fixture

@@ -13,8 +13,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from wx import health, ops
 from wx.config import Config
+from wx.observe import health, ops
 
 TEMPLATE = Path(__file__).with_name("report_template.html")
 
