@@ -17,7 +17,7 @@ select
     count(*) filter (where d.is_core and d.is_expected and d.status in ('valid', 'trace', 'not_reported'))
         as core_present,
     string_agg(d.element, ', ' order by d.element) filter (where d.status = 'missing') as missing_elements,
-    string_agg(d.element, ', ' order by d.element) filter (where d.status in ('qc_failed', 'out_of_bounds', 'unparseable'))
+    string_agg(d.element, ', ' order by d.element) filter (where d.status in ('qc_failed', 'out_of_bounds', 'inconsistent', 'unparseable'))
         as quarantined_elements
 from {{ ref('fct_station_day_element') }} d
 join {{ ref('int_stations__selected') }} s on s.station_id = d.station_id

@@ -11,6 +11,7 @@ with by_status as (
         count(*) filter (where status = 'not_reported') as not_reported_days,
         count(*) filter (where status = 'qc_failed') as qc_failed_days,
         count(*) filter (where status = 'out_of_bounds') as out_of_bounds_days,
+        count(*) filter (where status = 'inconsistent') as inconsistent_days,
         count(*) filter (where status = 'unparseable') as unparseable_days,
         min(obs_date) filter (where status in ('valid', 'trace')) as first_usable_date,
         max(obs_date) filter (where status in ('valid', 'trace')) as last_usable_date

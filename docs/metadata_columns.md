@@ -71,7 +71,7 @@ The flags are kept on every fact row, so any status can be traced back to the fl
 | Column | Where | Meaning |
 |---|---|---|
 | `raw_value` | `int_observations__assessed` → facts | NOAA's integer before scaling (tenths of °C or mm), kept so a scaled value can be checked against the source. |
-| `quality_status` | `fct_observations` | `valid`, `trace`, `qc_failed`, `out_of_bounds`, `unparseable` or `removed_at_source`. See the README's data cleaning section. |
+| `quality_status` | `fct_observations` | `valid`, `trace`, `qc_failed`, `out_of_bounds`, `inconsistent` (TMAX below TMIN that day; both set aside), `unparseable` or `removed_at_source`. See the README's data cleaning section. |
 | `status` | `fct_station_day_element` | `quality_status`, plus three statuses for days with no row at all: `missing`, `not_reported` and `not_expected`. Snow depth is `missing` rather than `not_reported` while snow is evidently on the ground (`persistent` in config). |
 | `is_usable` | `fct_observations` | True for `valid` and `trace`. Downstream models and narratives use only these values. |
 | `is_trace` | facts | A trace amount: stored as 0, reported as "a trace". |

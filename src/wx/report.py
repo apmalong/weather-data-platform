@@ -79,8 +79,8 @@ def collect(cfg: Config) -> dict:
                 cross join (select display_factor from marts.dim_element where element = 'WSFG') e_wsfg
                 order by d.city, d.obs_date"""),
             "quality": _rows(conn, """select city, element, expected_days, valid_days, trace_days, missing_days,
-                                             not_reported_days, qc_failed_days, out_of_bounds_days, completeness,
-                                             last_usable_date, days_since_last, freshness
+                                             not_reported_days, qc_failed_days, out_of_bounds_days, inconsistent_days,
+                                             completeness, last_usable_date, days_since_last, freshness
                                       from marts.mart_data_quality order by city, element"""),
             "changes": _rows(conn, """select run_id, changed_at, city, inserted, updated, deleted, value_revisions,
                                              flag_revisions, historical_changes, earliest_date_touched

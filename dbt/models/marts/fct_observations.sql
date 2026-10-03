@@ -25,10 +25,19 @@ with assessed as (
     select coalesce(max(raw_changed_at), '1900-01-01'::timestamp) as changed_after from {{ this }}
 )
 
-, changed_keys as (
+, noaa_changes as (
     select distinct station_id, try_strptime(obs_date, '%Y%m%d')::date as obs_date, element
     from {{ source('raw', 'observation_changes') }}
     where changed_at > (select changed_after from watermark)
+)
+
+, changed_keys as (
+    select station_id, obs_date, element from noaa_changes
+    union
+    -- TMAX and TMIN are assessed as a pair (inconsistent when TMAX < TMIN), so a change to one
+    -- reprocesses the other for that day too
+    select station_id, obs_date, case element when 'TMAX' then 'TMIN' else 'TMAX' end
+    from noaa_changes where element in ('TMAX', 'TMIN')
     union
     select t.station_id, t.obs_date, t.element
     from {{ this }} t

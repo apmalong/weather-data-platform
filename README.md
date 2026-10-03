@@ -52,7 +52,7 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | Command | What it does |
 |---|---|
 | `wx ingest` | Downloads NOAA's reference files, resolves each configured city to a station from the metadata, downloads and loads its observations (skipping unchanged files) |
-| `wx transform` | `dbt build`: 20 models across staging, intermediate and marts, plus 69 data tests and a unit test. `--full-refresh` rebuilds from raw |
+| `wx transform` | `dbt build`: 20 models across staging, intermediate and marts, plus 69 data tests and 2 unit tests. `--full-refresh` rebuilds from raw |
 | `wx narrate` | Daily narratives for the last 14 days, in batches, validated against the data; cached, so reruns only do new or revised days |
 | `wx eval` | Scores a narrative prompt and model on hard cases (`evals/cases.yml`): `--prompt prompts/narrative_v1.md` |
 | `wx health` | One report: runs, checks, dbt tests, data quality, NOAA's revisions, narratives, evaluation. `--strict` exits 1 on errors |
@@ -208,6 +208,7 @@ What's wrong with the raw data, what the pipeline does about it, and where:
 | Dates and values as text; sentinels like elevation `-999.9` | Cast with `try_cast`: anything that doesn't parse becomes `unparseable`, not a failed build; sentinels become null | staging |
 | Values in tenths (°C ×10, mm ×10) | Scale from the readme's element definitions, at fixed precision (`decimal(12,1)`) so there's no float noise | `int_observations__assessed` |
 | NOAA quality flags; physically impossible values | Mark them `qc_failed` or `out_of_bounds` (bounds in config); keep the raw value but exclude it from usable values | `int_observations__assessed` |
+| A day's maximum temperature below its minimum, which NOAA's checks didn't flag | Mark both `inconsistent`, since either could be the wrong one; neither is used | `int_observations__assessed` |
 | Trace amounts stored as 0 | Keep 0 but give them the status `trace`, so they never read as "none" | `int_observations__assessed` |
 | Days with no row at all | Build a full station × day × element grid, so every absence is a row: `missing`, `not_reported` (counted as 0 for gusts and snow depth, per config, except snow depth while snow is evidently on the ground) or `not_expected` | `fct_station_day_element` |
 | Rows NOAA revises or removes | Updated in place and logged; removed rows are marked `removed_at_source` instead of deleted | `fct_observations` |
@@ -232,11 +233,18 @@ written to the warehouse as column comments on every build.
 | Download | HTTP status, non-empty, gzip integrity, content fingerprint |
 | Load | Readme layouts unchanged; rows parse; rows belong to the file's station; no duplicate station/date/element |
 | Staging | Dates and values parse; quality and measurement flags are codes the readme defines; coordinates in range |
-| Intermediate | Each value gets a status: `valid`, `trace`, `qc_failed` (NOAA's quality flag set), `out_of_bounds` (outside physical bounds in config), `unparseable` |
-| Marts | Every station × day × element in the window gets a status, so gaps are countable rows; TMAX ≥ TMIN; TAVG within [TMIN, TMAX]; completeness; freshness per station |
+| Intermediate | Each value gets a status: `valid`, `trace`, `qc_failed` (NOAA's quality flag set), `out_of_bounds` (outside physical bounds in config), `inconsistent` (TMAX below TMIN that day), `unparseable` |
+| Marts | Every station × day × element in the window gets a status, so gaps are countable rows; TMAX ≥ TMIN among usable values; TAVG within [TMIN, TMAX]; completeness; freshness per station |
 | Narratives | Every narrative validated against its facts (below) |
 
 Nothing is dropped silently: a value that fails a check stays in `fct_observations` with the reason.
+
+**Source errors are quarantined; tests guard the pipeline.** A bad value from NOAA never fails the
+build: it's set aside with a status, counted, and listed in `audit.data_issues`, so one bad reading
+can't stop the marts for every station. The error-severity dbt tests check what the pipeline
+guarantees after that (unique keys, valid statuses, no usable TMAX below TMIN), so a failure means a
+bug in our code, and stopping the build is then the right response. Problems that are judgement calls
+(TAVG slightly outside TMIN–TMAX) are warnings.
 
 **Absent doesn't always mean missing.** Environment Canada only reports a peak gust above about
 31 km/h, and snow depth only when there is snow. Treating those absences as missing data would make

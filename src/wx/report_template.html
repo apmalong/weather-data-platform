@@ -305,14 +305,14 @@ function Quality() {
         const worst = DATA.quality.filter(q => q.city === c && !["not_applicable", "not_expected"].includes(q.freshness)).map(q => q.freshness);
         const fresh = worst.includes("stale") ? "stale" : worst.includes("lagging") ? "lagging" : "fresh";
         return html`<tr key=${c}><td style=${{ textAlign: "left", fontWeight: 600 }}>${c}</td>${elements.map(e => { const q = cell(c, e); const [bg, fg] = shade(q?.completeness);
-          return html`<td key=${e} style=${{ background: bg, color: fg }} title=${q ? `${q.valid_days} valid, ${q.trace_days} trace, ${q.missing_days} missing, ${q.not_reported_days} not reported, ${q.qc_failed_days + q.out_of_bounds_days} quarantined` : ""}>${q ? pct(q.completeness) : "–"}</td>`; })}
+          return html`<td key=${e} style=${{ background: bg, color: fg }} title=${q ? `${q.valid_days} valid, ${q.trace_days} trace, ${q.missing_days} missing, ${q.not_reported_days} not reported, ${q.qc_failed_days + q.out_of_bounds_days + q.inconsistent_days} quarantined` : ""}>${q ? pct(q.completeness) : "–"}</td>`; })}
           <td><${Badge} s=${fresh} /></td></tr>`; })}</tbody></table>
       <div class="legend" style=${{ marginTop: 8 }}>${[["≥ 99.9%", "--seq-6"], ["≥ 99%", "--seq-5"], ["≥ 97%", "--seq-4"], ["≥ 95%", "--seq-3"], ["≥ 90%", "--seq-2"], ["< 90%", "--seq-1"]].map(([l, v]) =>
         html`<span key=${l}><i class="sw box" style=${{ background: `var(${v})` }}></i>${l}</span>`)}</div></div>
     <h2>Status of every expected day</h2>
     <div class="card scroll"><table><thead><tr><th>City</th><th>Element</th><th class="num">Expected</th><th class="num">Valid</th><th class="num">Trace</th><th class="num">Missing</th><th class="num">Not reported</th><th class="num">Quarantined</th><th>Latest usable</th></tr></thead>
       <tbody>${DATA.quality.filter(q => q.expected_days > 0).map(q => html`<tr key=${q.city + q.element}><td>${q.city}</td><td>${label(q.element)}</td><td class="num">${q.expected_days}</td><td class="num">${q.valid_days}</td>
-        <td class="num">${q.trace_days}</td><td class="num">${q.missing_days}</td><td class="num">${q.not_reported_days}</td><td class="num">${q.qc_failed_days + q.out_of_bounds_days}</td><td>${q.last_usable_date || "–"}</td></tr>`)}</tbody></table></div>
+        <td class="num">${q.trace_days}</td><td class="num">${q.missing_days}</td><td class="num">${q.not_reported_days}</td><td class="num">${q.qc_failed_days + q.out_of_bounds_days + q.inconsistent_days}</td><td>${q.last_usable_date || "–"}</td></tr>`)}</tbody></table></div>
     <h2>What NOAA changed</h2>
     <p class="sub">Every load is compared row by row with the previous one. Revisions and removals of past dates show NOAA correcting history, which date-based incremental loading would miss.</p>
     <div class="card scroll"><table><thead><tr><th>Run</th><th>City</th><th class="num">New rows</th><th class="num">Revised values</th><th class="num">Flag-only revisions</th><th class="num">Removed</th><th class="num">Historical</th></tr></thead>

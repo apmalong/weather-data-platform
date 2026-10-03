@@ -1,4 +1,6 @@
--- A day's usable maximum temperature can't be below its minimum.
+-- A day's usable maximum temperature can't be below its minimum. Inverted source pairs are quarantined
+-- as 'inconsistent' in int_observations__assessed, so a row here means that rule is broken: a
+-- pipeline bug, which should stop the build.
 select x.station_id, x.obs_date, x.value as tmax, n.value as tmin
 from {{ ref('fct_observations') }} x
 join {{ ref('fct_observations') }} n on n.station_id = x.station_id and n.obs_date = x.obs_date

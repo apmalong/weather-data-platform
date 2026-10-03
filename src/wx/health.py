@@ -141,7 +141,7 @@ def _quality(conn, r: Report) -> None:
                min(completeness) filter (where expected_days > 0) as worst_completeness,
                arg_min(e.label, (completeness, e.label)) filter (where expected_days > 0) as worst_element,
                sum(missing_days) as missing, sum(trace_days) as trace,
-               sum(qc_failed_days + out_of_bounds_days + unparseable_days) as quarantined,
+               sum(qc_failed_days + out_of_bounds_days + inconsistent_days + unparseable_days) as quarantined,
                max(last_usable_date) filter (where freshness <> 'not_applicable') as latest,
                case when bool_or(freshness = 'stale') then 'stale' when bool_or(freshness = 'lagging') then 'lagging'
                     else 'fresh' end as freshness

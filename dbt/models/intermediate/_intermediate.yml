@@ -46,7 +46,7 @@ models:
       - name: quality_status
         description: "{{ doc('quality_status') }}"
         data_tests:
-          - accepted_values: {arguments: {values: [valid, trace, qc_failed, out_of_bounds, unparseable]}}
+          - accepted_values: {arguments: {values: [valid, trace, qc_failed, out_of_bounds, inconsistent, unparseable]}}
       - {name: raw_value, description: "{{ doc('raw_value') }}"}
       - {name: value, description: "{{ doc('value') }}"}
       - {name: mflag, description: "{{ doc('mflag') }}"}
@@ -56,3 +56,32 @@ models:
       - {name: policy_hash, description: "{{ doc('policy_hash') }}"}
       - {name: raw_changed_at, description: "{{ doc('raw_changed_at') }}"}
       - {name: raw_run_id, description: "{{ doc('raw_run_id') }}"}
+
+unit_tests:
+  # A source error NOAA's checks didn't flag is quarantined, not left to fail a test and stop the build.
+  - name: inverted_tmax_tmin_is_quarantined_not_fatal
+    model: int_observations__assessed
+    given:
+      - input: ref('stg_ghcnd__observations')
+        rows:
+          - {station_id: S1, obs_date: 2026-09-01, element: TMAX, raw_value: 150}   # 15.0 below 20.1: inverted
+          - {station_id: S1, obs_date: 2026-09-01, element: TMIN, raw_value: 201}
+          - {station_id: S1, obs_date: 2026-09-02, element: TMAX, raw_value: 250}   # a normal day
+          - {station_id: S1, obs_date: 2026-09-02, element: TMIN, raw_value: 120}
+          - {station_id: S1, obs_date: 2026-09-03, element: TMAX, raw_value: 150}   # inverted, but NOAA already
+          - {station_id: S1, obs_date: 2026-09-03, element: TMIN, raw_value: 201, qflag: I}   # flagged TMIN
+      - input: ref('int_stations__selected')
+        rows:
+          - {station_id: S1}
+      - input: ref('int_elements__in_scope')
+        rows:
+          - {element: TMAX, scale: 0.1, unit: degrees C, lower_bound: -60, upper_bound: 50}
+          - {element: TMIN, scale: 0.1, unit: degrees C, lower_bound: -60, upper_bound: 50}
+    expect:
+      rows:
+        - {obs_date: 2026-09-01, element: TMAX, quality_status: inconsistent}
+        - {obs_date: 2026-09-01, element: TMIN, quality_status: inconsistent}
+        - {obs_date: 2026-09-02, element: TMAX, quality_status: valid}
+        - {obs_date: 2026-09-02, element: TMIN, quality_status: valid}
+        - {obs_date: 2026-09-03, element: TMAX, quality_status: valid}
+        - {obs_date: 2026-09-03, element: TMIN, quality_status: qc_failed}

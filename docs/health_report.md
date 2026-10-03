@@ -7,20 +7,20 @@
 | stage | status | started (UTC) | seconds | error |
 |---|---|---|---|---|
 | narrate | success | 2026-10-02 22:45:33 | 0.0 |  |
-| ingest | success | 2026-10-03 01:23:32 | 15.0 |  |
-| transform | success | 2026-10-03 01:23:52 | 13.0 |  |
+| ingest | success | 2026-10-03 14:09:08 | 15.0 |  |
+| transform | success | 2026-10-03 18:32:26 | 14.0 |  |
 
-## Ingest (20261003T012332-1c204e)
+## Ingest (20261003T140908-cdecf5)
 
 11 files downloaded, 0 changed since the last run, 0 failed, 48.8 MB.
 
 | city | station | candidates considered | why it won |
 |---|---|---|---|
+| Montreal | CAN07025251 MONTREAL INTL A | 19 | selected: the airport's own station |
 | Calgary | CAN03031092 CALGARY INTL A | 39 | selected: the airport's own station |
 | Toronto | CAN06158731 TORONTO INTL A | 93 | selected: the airport's own station |
-| Vancouver | CAN01108395 VANCOUVER INTL A | 43 | selected: the airport's own station |
-| Montreal | CAN07025251 MONTREAL INTL A | 19 | selected: the airport's own station |
 | Ottawa | CAN06106001 OTTAWA INTL A | 25 | selected: the airport's own station |
+| Vancouver | CAN01108395 VANCOUVER INTL A | 43 | selected: the airport's own station |
 
 What NOAA changed in the most recent load that changed anything (revisions and removals of past dates count as historical):
 
@@ -32,9 +32,9 @@ What NOAA changed in the most recent load that changed anything (revisions and r
 | 20261002T172108-4f3f93 | Toronto | 33855 | 0 | 0 | 0 |
 | 20261002T172108-4f3f93 | Vancouver | 77287 | 0 | 0 | 0 |
 
-## Transform: dbt build (20261003T012352-4fa913)
+## Transform: dbt build (20261003T183226-53cac1)
 
-19 model success, 69 test pass, 1 unit_test pass.
+19 model success, 69 test pass, 2 unit_test pass.
 
 ## Data quality over the window
 
@@ -43,8 +43,8 @@ What NOAA changed in the most recent load that changed anything (revisions and r
 | Calgary | 0.967 | Average daily temperature | 99 | 276 | 6 | 2026-09-29 | fresh |
 | Montreal | 0.9835 | Snow depth | 41 | 238 | 0 | 2026-09-29 | fresh |
 | Ottawa | 0.9876 | Snow depth | 23 | 219 | 0 | 2026-09-29 | fresh |
-| Toronto | 0.9602 | Snow depth | 30 | 236 | 0 | 2026-09-29 | fresh |
-| Vancouver | 0.9451 | Average daily temperature | 134 | 62 | 0 | 2026-09-29 | fresh |
+| Toronto | 0.9601 | Snow depth | 30 | 235 | 0 | 2026-09-29 | fresh |
+| Vancouver | 0.945 | Average daily temperature | 134 | 62 | 0 | 2026-09-29 | fresh |
 
 ## Narratives (20261002T224533-cb8e74)
 

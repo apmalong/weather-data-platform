@@ -1,7 +1,7 @@
 {#-
     on-run-end hook (after audit_failures_view): audit.data_issues, everything wrong with the data in
     one place, one row per issue. Four kinds, from where each is already kept:
-      quarantined      a value NOAA flagged, outside our bounds or unparseable (fct_observations)
+      quarantined      a value NOAA flagged, outside our bounds, inconsistent or unparseable (fct_observations)
       rejected_row     a line that couldn't be loaded at all (raw.rejected_rows)
       revised_by_noaa  NOAA changed or removed a value it had published (raw.observation_changes)
       test_failure     output that breaks a data test after all that (audit.all_failures)
@@ -24,12 +24,13 @@ select 'quarantined' as issue_type, 'info' as severity, o.station_id, s.city, o.
                when 'W' then 'too warm for snow' when 'X' then 'bounds' when 'Z' then 'Datzilla investigation'
                else 'unknown flag' end
            when 'out_of_bounds' then 'outside the physical bounds in config'
+           when 'inconsistent' then 'maximum temperature below minimum that day: both set aside'
            else 'value or date did not parse'
        end as reason,
        'marts.fct_observations' as found_in, o.dbt_loaded_at as detected_at
 from marts.fct_observations o   -- a hook can't use ref(); the schema is fixed by generate_schema_name
 left join stations s on s.station_id = o.station_id
-where o.quality_status in ('qc_failed', 'out_of_bounds', 'unparseable')
+where o.quality_status in ('qc_failed', 'out_of_bounds', 'inconsistent', 'unparseable')
 
 union all
 select 'rejected_row', 'warn', r.station_id, s.city, null, null, r.line, r.reason,

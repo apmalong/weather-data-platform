@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 
 USABLE = {"valid", "trace"}
-UNAVAILABLE = {"missing", "qc_failed", "out_of_bounds", "unparseable"}
+UNAVAILABLE = {"missing", "qc_failed", "out_of_bounds", "inconsistent", "unparseable"}
 
 # Topics and weather types the facts never contain; mentioning them means the model made it up.
 INVENTED = re.compile(

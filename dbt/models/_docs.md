@@ -76,7 +76,8 @@ The value in the element's unit (`raw_value × scale`), at fixed precision (deci
 {% docs quality_status %}
 What the value is fit for. `valid` passed NOAA's checks and our bounds; `trace` a measurable amount
 too small to record (value 0); `qc_failed` NOAA's quality flag is set; `out_of_bounds` outside the
-element's physical bounds in config; `unparseable` the date or value didn't parse;
+element's physical bounds in config; `inconsistent` the day's maximum temperature is below its minimum,
+so both are set aside; `unparseable` the date or value didn't parse;
 `removed_at_source` NOAA deleted the row (fct_observations only). Only `valid` and `trace` are usable.
 {% enddocs %}
 

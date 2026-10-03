@@ -1,6 +1,6 @@
 -- One row per selected station, day in the window and in-scope element, including the days with no
 -- observation, so gaps are rows you can count rather than absences you have to infer.
---   valid / trace / qc_failed / out_of_bounds / unparseable   as observed (fct_observations)
+--   valid / trace / qc_failed / out_of_bounds / inconsistent / unparseable   as observed (fct_observations)
 --   missing        the station reports this element that year (inventory) but not this day
 --   not_reported   absent, and config says absence means "nothing to report" for this element
 --                  (Environment Canada omits gusts below ~31 km/h and zero snow depth): value 0
