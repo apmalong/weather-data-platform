@@ -403,8 +403,15 @@ so, and the task retries.
   instead of a report; OpenTelemetry traces for LLM calls.
 - **Narratives:** a model-graded score for tone and clarity in evaluation (costs quota, so off by
   default); run `wx eval` automatically when the model list changes; per-city monthly summaries.
-- **Data:** cross-check a sample against Environment Canada's API, which would have caught the old
-  files' gust units automatically; NOAA's change history (`status.txt`) surfaced in the health report.
+- **Data:** evaluate switching the Canadian source from NOAA to Environment Canada's API
+  (`api.weather.gc.ca`, `climate-daily`). It's the originating source: a day fresher, and it has
+  readings NOAA's copy dropped (21 snow-depth days at Toronto and Calgary alone). Against that, it
+  covers Canada only, lacks NOAA's quality checks and flags, and the station metadata and inventory
+  that drive selection would have to come from somewhere else. A middle path is to keep NOAA and fill
+  gaps from Environment Canada, recording the source of each value.
+- **Data checks:** turn the one-off Environment Canada comparison into a scheduled check on a sample
+  of station-days. That would also have caught the old files' gust units automatically. Surface
+  NOAA's change history (`status.txt`) in the health report.
 - **Scale:** partition `fct_observations` by year; move to a client-server warehouse for parallel stages.
 
 ## Repository layout
