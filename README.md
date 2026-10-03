@@ -217,6 +217,9 @@ What's wrong with the raw data, what the pipeline does about it, and where:
 correct values NOAA flagged. Each would give the narratives a number nobody measured. A gap stays
 a gap, labelled with its reason, and the completeness report counts it.
 
+How NOAA encodes units and special values (a trace is 0 with flag `T`, gusts in tenths of m/s shown
+as km/h, old "no gust" sentinels) is in [docs/source_conventions.md](docs/source_conventions.md).
+
 Every column that records lineage, change, quality or a run (`_row_hash`, `policy_hash`,
 `input_hash`, `is_deleted`, NOAA's flags, the `ops` ledger…) is explained in
 [docs/metadata_columns.md](docs/metadata_columns.md). The same definitions are in the dbt YAML and are
@@ -415,6 +418,11 @@ so, and the task retries.
   first: element rules are global, but `absent_means_zero` describes Environment Canada's reporting
   and US stations need their own rules (per network or country); each city adds about 365 narratives
   a year to the free-tier quota; and the report's city picker and charts were designed for five.
+- **Encodings outside today's window:** before 2019, Environment Canada wrote "no gust" as a gust of
+  0 from 0°, which would read as "0 km/h from the N"; US data can carry `mflag P` (missing, presumed
+  zero); NOAA's other file format uses `-9999` for missing. None occur in the current window or
+  stations. Each needs a small config rule before extending the window or adding US cities
+  ([docs/source_conventions.md](docs/source_conventions.md)).
 - **Data checks:** turn the one-off Environment Canada comparison into a scheduled check on a sample
   of station-days. That would also have caught the old files' gust units automatically. Surface
   NOAA's change history (`status.txt`) in the health report.
@@ -443,6 +451,6 @@ prompts/                  narrative prompts, versioned
 evals/cases.yml           the evaluation set
 orchestration/            optional Airflow (Dockerfile, compose, DAG)
 tests/                    unit and integration tests (pytest)
-docs/                     metadata column reference, example health report
+docs/                     NOAA conventions, metadata column reference, example health report
 src/wx/report_template.html   the results page (React via CDN, data embedded by `wx report`)
 ```
