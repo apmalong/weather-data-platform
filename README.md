@@ -245,6 +245,16 @@ the completeness report wrong and the narratives say false things ("no wind data
 `missing`. The freshness test found this the hard way: snow depth looked five months stale in
 September. Freshness is now judged only on elements that are reported every day.
 
+**When data stops arriving.** An element's latest usable reading is compared with the date of the
+last ingest: over `quality.freshness_warn_days` (7) it's `lagging`, a warning; over
+`quality.freshness_error_days` (30), or with no usable reading in the window, it's `stale`. A stale
+station fails `assert_stations_fresh`, so `wx transform` exits with an error and the health report
+goes ERROR. Nothing in the warehouse is rolled back or hidden: `mart_data_quality` is a leaf, so
+every model still builds and shows the stale status. `wx narrate` skips stale stations (listed as
+`skipped_stale` in its summary) so no narrative describes weeks-old weather, and `wx run` and the
+Airflow DAG stop at the failed transform anyway. Not running the pipeline doesn't make data stale:
+age is measured against the last ingest, not the calendar.
+
 **…but snow on the ground doesn't vanish between readings.** Checking Vancouver against Environment
 Canada's own daily record (the `climate-daily` collection at `api.weather.gc.ca`) found 2 February
 2025: 4 cm on the ground and 5.8 cm of new snow per Environment Canada, but no snow-depth row in

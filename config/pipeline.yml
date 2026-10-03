@@ -106,5 +106,5 @@ narratives:
 
 quality:
   freshness_warn_days: 7        # latest observation older than this: warning
-  freshness_error_days: 30      # ... older than this: error, narratives are not generated
+  freshness_error_days: 30      # ... older than this: error; the dbt build fails and the station isn't narrated
   volume_change_warn_pct: 20    # rows per station changed by more than this between loads

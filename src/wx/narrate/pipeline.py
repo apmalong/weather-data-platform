@@ -74,6 +74,18 @@ def make_provider(cfg: Config) -> Provider:
     return GeminiProvider(key, cfg.narratives.models, cfg.narratives.temperature)
 
 
+def stale_stations(conn) -> dict[str, str]:
+    """Stations with an element whose data stopped arriving (mart_data_quality.freshness = 'stale'):
+    {station_id: city}. Their latest days would describe weather from weeks ago, so they aren't
+    narrated until fresh data arrives. Empty when the mart doesn't exist yet."""
+    exists = conn.execute("""select count(*) from information_schema.tables
+                             where table_schema = 'marts' and table_name = 'mart_data_quality'""").fetchone()[0]
+    if not exists:
+        return {}
+    return dict(conn.execute("""select distinct station_id, city from marts.mart_data_quality
+                                where freshness = 'stale'""").fetchall())
+
+
 def pending(conn, cfg: Config, model: str, prompt_version: str, days: int) -> list[StationDay]:
     rows = conn.execute("""
         select i.station_id, i.city, i.province, i.station_name, i.obs_date::varchar, i.facts, i.input_hash
@@ -167,6 +179,13 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
     try:
         with ops.run(conn, "narrate") as (run_id, details):
             todo = pending(conn, cfg, provider.model, prompt_version, days or n.days)
+            stale = stale_stations(conn)
+            if stale:
+                skipped = [d for d in todo if d.station_id in stale]
+                todo = [d for d in todo if d.station_id not in stale]
+                summary["skipped_stale"] = sorted(stale.values())
+                log.warning("not narrating %s: data is stale (older than quality.freshness_error_days); "
+                            "%d station-days skipped", ", ".join(sorted(stale.values())), len(skipped))
             summary["pending"] = len(todo)
             log.info("%d station-days need a narrative (%s, %s)", len(todo), provider.model, prompt_version)
             # Nothing usable to describe: write a fixed sentence rather than invite the model to invent one.
@@ -179,7 +198,8 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
                 summary["passed" if validate.passed(checks) else "failed_validation"] += 1
             todo = [d for d in todo if not validate.nothing_to_report(d.facts)]
 
-            failures = unrepaired(conn, cfg, provider.model, prompt_version, days or n.days)
+            failures = [f for f in unrepaired(conn, cfg, provider.model, prompt_version, days or n.days)
+                        if f[0].station_id not in stale]
             carried = summary["carried_over"] = len(failures)
             if carried:
                 log.info("%d narratives from earlier runs failed validation and get their repair attempt", carried)

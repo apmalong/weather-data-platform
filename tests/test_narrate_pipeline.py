@@ -61,3 +61,25 @@ def test_days_with_nothing_to_report_skip_the_model(cfg):
     assert (result["no_data"], result["requests"], result["passed"]) == (1, 0, 1)
     conn = duckdb.connect(str(cfg.warehouse), read_only=True)
     assert conn.execute("select provider from narratives.daily").fetchone() == ("rule",)
+
+
+def test_stale_stations_are_not_narrated(cfg):
+    """A station whose data stopped arriving would get narratives about weeks-old weather."""
+    conn = duckdb.connect(str(cfg.warehouse))
+    conn.execute("create table marts.mart_data_quality (station_id varchar, city varchar, element varchar, "
+                 "freshness varchar)")
+    conn.execute("insert into marts.mart_data_quality values ('CAN06158731', 'Toronto', 'TMAX', 'stale'), "
+                 "('CAN06158731', 'Toronto', 'SNWD', 'not_applicable')")
+    conn.close()
+    result = pipeline.run(cfg, provider=MockProvider(), days=3)
+    assert (result["generated"], result["requests"], result["skipped_stale"]) == (0, 0, ["Toronto"])
+
+
+def test_lagging_stations_are_still_narrated(cfg):
+    conn = duckdb.connect(str(cfg.warehouse))
+    conn.execute("create table marts.mart_data_quality (station_id varchar, city varchar, element varchar, "
+                 "freshness varchar)")
+    conn.execute("insert into marts.mart_data_quality values ('CAN06158731', 'Toronto', 'TMAX', 'lagging')")
+    conn.close()
+    result = pipeline.run(cfg, provider=MockProvider(), days=3)
+    assert result["generated"] == 3 and "skipped_stale" not in result
