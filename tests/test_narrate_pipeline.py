@@ -3,7 +3,7 @@ import json
 import duckdb
 import pytest
 
-from wx import config
+from wx import config, ops
 from wx.narrate import pipeline
 from wx.narrate.providers import MockProvider
 
@@ -83,3 +83,16 @@ def test_lagging_stations_are_still_narrated(cfg):
     conn.close()
     result = pipeline.run(cfg, provider=MockProvider(), days=3)
     assert result["generated"] == 3 and "skipped_stale" not in result
+
+
+def test_a_narrative_is_never_stored_without_its_validation(cfg):
+    """Storing a narrative and its validation is one transaction: if the second insert fails, the
+    first is rolled back, so the cache never holds a narrative that was never checked."""
+    conn = ops.connect(cfg.warehouse)
+    conn.execute(pipeline.DDL)
+    conn.execute("drop view narratives.latest; drop table narratives.validation")   # the second insert fails
+    day = pipeline.StationDay("CAN06158731", "Toronto", "ON", "TORONTO INTL A", "2026-09-29", FACTS, "h29")
+    draft = {"narrative": "Toronto saw a high of 21 °C and a low of 15 °C, with 2 mm of rain.", "cited": []}
+    with pytest.raises(duckdb.CatalogException):
+        pipeline._store(conn, "r1", "mock", "mock-v1", "p@1", day, draft, cfg)
+    assert conn.execute("select count(*) from narratives.daily").fetchone()[0] == 0

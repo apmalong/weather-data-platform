@@ -57,6 +57,7 @@ def _loaded(conn, dataset: str) -> bool:
     return bool(conn.execute("select count(*) from ops.loads where dataset = ?", [dataset]).fetchone()[0])
 
 
+@ops.atomic  # dbt must never read one run's stations with another run's window or rules
 def _publish_config(conn, cfg: Config, stations: list[resolve.Station], start: date, end: date, run_id: str) -> None:
     conn.execute("create schema if not exists config")
     conn.execute("create or replace table config.selected_stations (city varchar, province varchar, "

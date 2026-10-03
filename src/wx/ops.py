@@ -1,6 +1,7 @@
 """The ops ledger: every stage records what it did in the warehouse's `ops` schema, so a run can be
 explained after the fact and health checks have history to compare against (`wx health`, `wx report`).
 """
+import functools
 import json
 import uuid
 from contextlib import contextmanager
@@ -66,6 +67,29 @@ def connect_read(path) -> duckdb.DuckDBPyConnection:
         return duckdb.connect(str(path), read_only=True)
     except duckdb.ConnectionException:
         return duckdb.connect(str(path))
+
+
+@contextmanager
+def transaction(conn: duckdb.DuckDBPyConnection):
+    """All or nothing: the statements inside are committed together, or rolled back together if
+    anything fails, so an interrupted run never leaves a half-written table behind."""
+    conn.begin()
+    try:
+        yield
+    except BaseException:
+        conn.rollback()
+        raise
+    conn.commit()
+
+
+def atomic(fn):
+    """Run fn(conn, ...) in one transaction. For writes that span several statements: a merge, a
+    table replaced together with its load record, a narrative with its validation."""
+    @functools.wraps(fn)
+    def wrapper(conn, *args, **kwargs):
+        with transaction(conn):
+            return fn(conn, *args, **kwargs)
+    return wrapper
 
 
 @contextmanager

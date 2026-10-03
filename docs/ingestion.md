@@ -21,6 +21,14 @@ A failure at any step marks the run `failed` with the error, and nothing after i
 **Re-running is safe and cheap.** Unchanged files are skipped by fingerprint, and an unchanged
 file produces no changes. `wx ingest --force` reloads every file regardless.
 
+**Each write is all or nothing.** A station file's merge (rejected rows, checks, change log, delete,
+insert, load record), each reference file with its load record, and the run-scope tables are each
+one transaction (`ops.atomic`). An interrupted run leaves every table as it was before that step,
+and the next run picks up cleanly. Without this, a merge interrupted between its delete and its
+insert would lose rows from raw and log changes that never happened; the test
+`test_an_interrupted_merge_changes_nothing` checks it. Narratives are stored the same way, together
+with their validation.
+
 **Why read the whole file:** NOAA publishes each station's entire history in one file, revises past
 values, and offers no "changes since" feed. Only a full comparison finds revisions; v3.35 reloaded 17
 months of Canadian data at once. Writing only the differences keeps the history of what NOAA changed.
@@ -36,7 +44,7 @@ months of Canadian data at once. Writing only the differences keeps the history 
 
 ## Tests
 
-`uv run pytest` runs 64 tests; 34 cover ingestion, using small in-memory warehouses and
+`uv run pytest` runs 66 tests; 35 cover ingestion, using small in-memory warehouses and
 hand-written NOAA rows, so they need no network.
 
 | File | Tests | What they prove |
@@ -44,12 +52,13 @@ hand-written NOAA rows, so they need no network.
 | `test_formats.py` | 3 | The fixed-width layouts in code match NOAA's readme; the element catalog reads units and scales ("tenths of" → 0.1); wrapped descriptions are joined |
 | `test_config.py` | 4 | The repository's config is valid; an unquoted `ON` (read by YAML as `true`) is rejected; city prefixes match NOAA's names (Montréal → MONTREAL); window bounds |
 | `test_resolve.py` | 12 | The international airport wins; an airport with full coverage outranks one without; a pinned station must still qualify; the brief's old `CA0` IDs aren't in the metadata; a new city is config only; full ties go to the lowest ID; the climate station beside an airport without precipitation is used (Winnipeg); US cities need only a country; "INTERCONTINENTAL" and names cut off at 30 characters count as international; a city without an airport-named station fails loudly; an unknown city fails loudly |
-| `test_load.py` | 7 | The first load inserts everything; revisions, backfills and removals are detected and logged; an unchanged reload changes nothing; other-station and duplicate rows fail their checks; rows that can't be loaded are kept with the reason; one station's load doesn't touch another's; rejected lines don't carry over to the next file |
+| `test_load.py` | 8 | The first load inserts everything; revisions, backfills and removals are detected and logged; an unchanged reload changes nothing; other-station and duplicate rows fail their checks; rows that can't be loaded are kept with the reason; one station's load doesn't touch another's; rejected lines don't carry over to the next file; an interrupted merge changes nothing and the next load applies cleanly |
 | `test_ops.py` | 4 | The warehouse folder is created on a fresh clone; a failed run is recorded with its error; a reader and a writer coexist in one process; a warehouse open elsewhere gives a clear message |
 | `test_reset.py` | 4 | `wx reset` removes the warehouse but keeps downloads; `--all` removes only what the pipeline created; `--narratives` drops only the narrative cache; nothing to reset is reported |
 
-The other 30 tests cover narratives: validation (14), the Gemini and mock providers (6), the
-narrative pipeline (6) and the repair attempt (4).
+The other 31 tests cover narratives: validation (14), the Gemini and mock providers (6), the
+narrative pipeline (7, including that a narrative is never stored without its validation) and the
+repair attempt (4).
 
 CI runs the same suite on every push, then the whole pipeline against live NOAA data from a clean
 checkout, which tests what unit tests can't: that NOAA's real files download, parse and resolve.

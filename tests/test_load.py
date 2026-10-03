@@ -1,5 +1,7 @@
 import gzip
 
+import pytest
+
 from wx.noaa import load
 
 STATION = "CAN06158731"
@@ -90,3 +92,26 @@ def test_rejected_lines_dont_carry_over_to_the_next_file(conn, tmp_path):
     assert load.load_observations(conn, "r1", STATION, bad, "sha1")["rejected"] == 1
     assert load.load_observations(conn, "r1", "CAN07025251", good, "sha2")["rejected"] == 0
     assert conn.execute("select count(*) from raw.rejected_rows").fetchone()[0] == 1
+
+
+def test_an_interrupted_merge_changes_nothing(conn, tmp_path, monkeypatch):
+    """The merge is one transaction: if it fails at its last step, raw, the change log and the
+    rejected rows are exactly as before, and the next run applies the file cleanly."""
+    v1 = [f"{STATION},20260101,TMAX,-52,,,C,", f"{STATION},20260102,TMAX,-30,,,C,"]
+    load.load_observations(conn, "r1", STATION, write(tmp_path, "v1.csv.gz", v1), "sha1")
+    snapshot = lambda: (conn.execute("select * from raw.observations order by all").fetchall(),  # noqa: E731
+                        conn.execute("select count(*) from raw.observation_changes").fetchone()[0],
+                        conn.execute("select count(*) from raw.rejected_rows").fetchone()[0])
+    before = snapshot()
+    v2 = [f"{STATION},20260101,TMAX,-55,,,C,", f"{STATION},20260103,TMAX", "CAN07025251,20260101,TMAX,1,,,C,"]
+    path = write(tmp_path, "v2.csv.gz", v2)        # a revision, a removal, a rejected line, a foreign row
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("interrupted")
+    monkeypatch.setattr(load, "_record", fail)      # the merge's last statement
+    with pytest.raises(RuntimeError, match="interrupted"):
+        load.load_observations(conn, "r2", STATION, path, "sha2")
+    assert snapshot() == before
+    monkeypatch.undo()
+    counts = load.load_observations(conn, "r3", STATION, path, "sha2")
+    assert (counts["updated"], counts["deleted"], counts["rejected"]) == (1, 1, 1)

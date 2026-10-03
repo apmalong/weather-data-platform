@@ -121,6 +121,7 @@ def unrepaired(conn, cfg: Config, model: str, prompt_version: str, days: int) ->
     return failures
 
 
+@ops.atomic  # a narrative is never stored without its validation
 def _store(conn, run_id: str, provider_name: str, model: str, prompt_version: str, day: StationDay, draft: dict,
            cfg: Config, attempt: int = 1) -> list[validate.Check]:
     checks = validate.validate(draft["narrative"], draft.get("cited") or [], day.facts, day.obs_date, day.city,

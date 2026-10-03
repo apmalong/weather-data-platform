@@ -45,6 +45,7 @@ def _record(conn, run_id, dataset, path, sha256, read, rejected, inserted=0, upd
                   time.time() - started, ops.now()])
 
 
+@ops.atomic
 def load_fixed_width(conn, run_id: str, dataset: str, path: Path, sha256: str) -> int:
     """Replace raw.<dataset> with the file's rows, cut at the readme's column positions."""
     started = time.time()
@@ -67,6 +68,7 @@ def load_fixed_width(conn, run_id: str, dataset: str, path: Path, sha256: str) -
     return loaded
 
 
+@ops.atomic
 def load_text(conn, run_id: str, name: str, path: Path, sha256: str) -> None:
     """Keep a whole text file (readme, status log) in raw.documents."""
     conn.execute("create table if not exists raw.documents (name varchar, content varchar, _sha256 varchar, "
@@ -77,6 +79,7 @@ def load_text(conn, run_id: str, name: str, path: Path, sha256: str) -> None:
     _record(conn, run_id, name, path, sha256, 1, 0, inserted=1)
 
 
+@ops.atomic
 def load_element_catalog(conn, run_id: str, readme: str) -> int:
     catalog = formats.element_catalog(readme)
     conn.execute("create or replace table raw.element_catalog (code varchar, description varchar, unit varchar, "
@@ -86,6 +89,7 @@ def load_element_catalog(conn, run_id: str, readme: str) -> int:
     return len(catalog)
 
 
+@ops.atomic
 def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: str) -> dict:
     """Merge one station's file into raw.observations; returns counts of read, rejected and changes."""
     started = time.time()
