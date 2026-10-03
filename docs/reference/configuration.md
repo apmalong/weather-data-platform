@@ -78,3 +78,4 @@ reprocesses only that element's rows.
 | `freshness_warn_days` | 7 | Latest usable reading older than this (vs. the ingest date): `lagging`, a warning |
 | `freshness_error_days` | 30 | Older than this, or none: `stale`, an error; the station isn't narrated |
 | `volume_change_warn_pct` | 20 | A station file's row count changing by more than this between loads: a warning |
+| `max_deleted_pct` | 5 | A station file that would remove more than this share of the station's stored rows isn't loaded: an error, and the station keeps its last good load until NOAA fixes the file or `wx ingest --force` accepts it |

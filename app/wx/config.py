@@ -103,6 +103,7 @@ class Quality(BaseModel):
     freshness_warn_days: int = 7
     freshness_error_days: int = 30
     volume_change_warn_pct: float = 20
+    max_deleted_pct: float = Field(5, ge=0, le=100)
 
 
 class Config(BaseModel):

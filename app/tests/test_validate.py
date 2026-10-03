@@ -125,3 +125,15 @@ def test_intensity_words_need_the_data_to_back_them():
     checks = validate("Heavy rain fell, a trace in all.", [], FACTS, "2026-09-28", intensity=rules)
     assert {c.name: c.severity for c in checks if not c.passed}.get("intensity_supported") == "warn"
     assert passed(checks) or "no_false_zero" in failures(checks)  # intensity alone never fails a narrative
+
+
+def test_the_date_is_not_a_quantity():
+    # On the 12th, "12" is grounded only as part of the date; as an amount it has to match a fact.
+    invented = validate("A high of 21.4 °C, a low of 15.3 °C and 12 mm of rain.", CITED, FACTS, "2026-09-12")
+    assert "numbers_grounded" in failures(invented)
+    for text in (
+        "On September 12, 2026, a high of 21.4 °C and a low of 15.3 °C.",
+        "On Sep. 12th a high of 21.4 °C and a low of 15.3 °C.",
+        "On 12 September a high of 21.4 °C and a low of 15.3 °C (2026-09-12).",
+    ):
+        assert "numbers_grounded" not in failures(validate(text, CITED, FACTS, "2026-09-12")), text

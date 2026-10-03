@@ -123,15 +123,35 @@ def run(cfg: Config, force: bool = False, today: date | None = None) -> dict:
                     f"{base}/by_station/{s.station_id}.csv.gz",
                     cfg.data_dir / "raw" / "by_station" / f"{s.station_id}.csv.gz",
                 )
-                loaded = conn.execute(
-                    "select count(*) from raw.observations where station_id = ?", [s.station_id]
-                ).fetchone()[0]
-                if got.changed or force or not loaded:
-                    counts = load.load_observations(conn, run_id, s.station_id, got.path, got.sha256)
-                    log.info("%s: %s", s.station_id, counts)
-                    details[s.station_id] = counts
-                else:
+                # Compared with the last file actually loaded, not the last downloaded: a refused file
+                # is tried (and reported) again on every run until NOAA fixes it or --force accepts it.
+                last_loaded = conn.execute(
+                    """select sha256 from ops.loads where dataset = 'observations' and source_file = ?
+                       order by loaded_at desc limit 1""",
+                    [str(got.path)],
+                ).fetchone()
+                if not (force or last_loaded is None or last_loaded[0] != got.sha256):
                     log.info("%s unchanged, skipped", s.station_id)
+                    continue
+                limit = None if force else cfg.quality.max_deleted_pct
+                try:
+                    counts = load.load_observations(conn, run_id, s.station_id, got.path, got.sha256, limit)
+                except load.TooManyDeletes as exc:
+                    ops.check(
+                        conn,
+                        run_id,
+                        "load",
+                        "deletes_within_limit",
+                        s.station_id,
+                        False,
+                        f"{exc.deleted} of {exc.existing}",
+                        f"at most {exc.limit:g}%",
+                    )
+                    log.error("%s", exc)
+                    details[s.station_id] = {"refused": str(exc)}
+                    continue
+                log.info("%s: %s", s.station_id, counts)
+                details[s.station_id] = counts
             _publish_config(conn, cfg, stations, start, end, run_id)
             details["window"] = [str(start), str(end)]
             details["stations"] = {s.city: s.station_id for s in stations}

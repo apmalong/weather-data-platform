@@ -30,4 +30,6 @@ services:
       - ../llm:/opt/wx/llm:ro
       - ../orchestration/dags:/opt/wx/orchestration/dags:ro
       - ../data:/opt/wx/data
-    ports: ["8080:8080"]
+    # This machine only: every user is an admin (no login) and the container holds GEMINI_API_KEY, so
+    # the UI must not be reachable from the network.
+    ports: ["127.0.0.1:8080:8080"]

@@ -19,10 +19,10 @@ on:
 #   /query/   a page that queries it in the browser with DuckDB-WASM (docs/query/index.html)
 # Pages serves one site per repo, so all of it is built and deployed together here; a second workflow
 # deploying to Pages would overwrite this one. Pull requests build but don't deploy.
+# Actions are pinned to commit SHAs (the version in the comment): a tag can be moved to other code,
+# and this workflow holds the Gemini key and can deploy the site.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: read   # the build job runs third-party packages, so only deploy may write to Pages
 
 concurrency:
   group: pages
@@ -33,8 +33,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # no later step needs the token in .git/config
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
           python-version: "3.12"
           enable-cache: true
@@ -80,7 +82,7 @@ jobs:
           shutil.copy("data/warehouse.duckdb", "site/data/warehouse.duckdb")
           print(f"{len(columns)} text columns checked; warehouse published")
           EOF
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
           path: site
 
@@ -88,9 +90,12 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

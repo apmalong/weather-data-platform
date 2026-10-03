@@ -142,3 +142,16 @@ def test_an_interrupted_merge_changes_nothing(conn, tmp_path, monkeypatch):
     monkeypatch.undo()
     counts = load.load_observations(conn, "r3", STATION, path, "sha2")
     assert (counts["updated"], counts["deleted"], counts["rejected"]) == (1, 1, 1)
+
+
+def test_a_file_missing_most_rows_is_refused_and_changes_nothing(conn, tmp_path):
+    rows = [f"{STATION},202601{d:02d},TMAX,{d},,,C," for d in range(1, 21)]
+    load.load_observations(conn, "r1", STATION, write(tmp_path, "full.csv.gz", rows), "sha1")
+    truncated = write(tmp_path, "truncated.csv.gz", rows[:10])
+    with pytest.raises(load.TooManyDeletes, match="10 of 20"):
+        load.load_observations(conn, "r2", STATION, truncated, "sha2", max_deleted_pct=5)
+    assert conn.execute("select count(*) from raw.observations").fetchone()[0] == 20
+    assert conn.execute("select count(*) from raw.observation_changes where run_id = 'r2'").fetchone()[0] == 0
+    # A removal within the limit, or with no limit (wx ingest --force), is applied.
+    counts = load.load_observations(conn, "r3", STATION, truncated, "sha2")
+    assert counts["deleted"] == 10

@@ -84,6 +84,30 @@ def _close(a: float, b: float) -> bool:
     return abs(a - b) <= 0.51  # the prompt allows rounding to whole numbers
 
 
+MONTHS = "January February March April May June July August September October November December".split()
+
+
+def _without_date(text: str, obs_date: str) -> str:
+    """The text with its own date removed ("2026-09-12", "September 12th", "12 Sep, 2026", "2026"), so
+    the date's numbers aren't checked as quantities. Only date expressions are removed: a bare 12 on
+    the 12th is still a number that has to match a fact ("12 mm of rain" on a dry day fails)."""
+    try:
+        year, month, day = (int(p) for p in obs_date.split("-"))
+        name = MONTHS[month - 1]
+    except (ValueError, IndexError):
+        return text
+    month_word = rf"(?:{name}|{name[:3]}\.?)"
+    day_word = rf"0?{day}(?:st|nd|rd|th)?"
+    for pattern in (
+        rf"\b{year}-0?{month}-0?{day}\b",
+        rf"\b{month_word}\s+{day_word}\b",
+        rf"\b{day_word}\s+{month_word}\b",
+        rf"\b{year}\b",
+    ):
+        text = re.sub(pattern, " ", text, flags=re.I)
+    return text
+
+
 def _get(rule, key):
     return rule.get(key) if isinstance(rule, dict) else getattr(rule, key)
 
@@ -121,12 +145,9 @@ def validate(
     unusable = [c["element"] for c in cited if by_element.get(c.get("element"), {}).get("status") not in USABLE]
     checks.append(Check("cited_only_usable", not unusable, "error", ", ".join(map(str, unusable))))
 
-    date_parts = {float(p) for p in re.findall(r"\d+", obs_date)}
     ungrounded = []
-    for raw in NUMBER.findall(text.replace(",", "")):
+    for raw in NUMBER.findall(_without_date(text, obs_date).replace(",", "")):
         n = float(raw)
-        if n in date_parts or abs(n) in date_parts:
-            continue
         if not any(_close(n, v) or _close(abs(n), abs(v)) for v in usable_values):
             ungrounded.append(raw)
     checks.append(Check("numbers_grounded", not ungrounded, "error", ", ".join(ungrounded)))

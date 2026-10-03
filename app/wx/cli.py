@@ -131,7 +131,8 @@ def _explore(args, cfg) -> None:
     # The UI keeps its own state through this connection, so the connection is in memory (writable)
     # and the warehouse is attached read-only: nothing can change it, and nothing is locked for long.
     conn = duckdb.connect()
-    conn.execute(f"attach '{cfg.warehouse.as_posix()}' as warehouse (read_only)")
+    path = cfg.warehouse.as_posix().replace("'", "''")  # a quote in the path (C:/Users/O'Brien) ends the literal
+    conn.execute(f"attach '{path}' as warehouse (read_only)")
     conn.execute("use warehouse")
     conn.execute("call start_ui()")
     print(
@@ -167,7 +168,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     commands = parser.add_subparsers(dest="command")
     ingest = commands.add_parser("ingest", help="download NOAA files, resolve stations, load raw")
-    ingest.add_argument("--force", action="store_true", help="reload files even if unchanged")
+    ingest.add_argument(
+        "--force",
+        action="store_true",
+        help="reload files even if unchanged, and accept one over the quality.max_deleted_pct limit",
+    )
     transform = commands.add_parser("transform", help="dbt build: models and data-quality tests")
     transform.add_argument("--full-refresh", action="store_true", help="rebuild incremental models from raw")
     transform.add_argument("--select", help="dbt node selection, e.g. marts")

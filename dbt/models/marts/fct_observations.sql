@@ -4,6 +4,10 @@
         unique_key=['station_id', 'obs_date', 'element'],
         incremental_strategy='delete+insert',
         on_schema_change='append_new_columns',
+        pre_hook="{% if is_incremental() %}
+            delete from {{ this }}
+            where station_id not in (select station_id from {{ source('config', 'selected_stations') }})
+        {% endif %}",
     )
 }}
 -- Every observation for the selected stations, full history, assessed. Incremental by change, not
@@ -12,7 +16,8 @@
 --      and the other of a TMAX/TMIN pair when one changes (they're assessed together),
 --   2. belong to an element whose policy changed in config (scale, bounds, absent rule),
 --   3. belong to a station/element pair new to scope (a city added to config).
--- Rows NOAA removed become tombstones (is_deleted) so downstream sees the removal.
+-- Rows NOAA removed become tombstones (is_deleted) so downstream sees the removal. A station that
+-- leaves scope (a city removed or re-pointed in config) is dropped by the pre-hook, as a full refresh would.
 -- `dbt build --full-refresh` rebuilds from raw at any time and gives the same result.
 -- depends_on: {{ ref('int_elements__in_scope') }}
 -- depends_on: {{ ref('int_stations__selected') }}

@@ -246,6 +246,7 @@ What's wrong with the raw data, what the pipeline does about it, and where:
 | Trace amounts stored as 0 | Keep 0 but give them the status `trace`, so they never read as "none" | `int_observations__assessed` |
 | Days with no row at all | Build a full station × day × element grid, so every absence is a row: `missing`, `not_reported` (counted as 0 for gusts and snow depth, per config, except snow depth while snow is evidently on the ground) or `not_expected` | `fct_station_day_element` |
 | Rows NOAA revises or removes | Updated in place and logged; removed rows are marked `removed_at_source` instead of deleted | `fct_observations` |
+| A station file missing much of its history (truncated at the source) | Refused if it would remove more than `max_deleted_pct` (5%) of the station's rows; the last good load is kept and the health report shows an error | `wx ingest` |
 | Metric units that are awkward to read (m/s, mm of snow) | Convert to km/h and cm only for display, from config | marts and report |
 
 **What we don't do:** fill missing days by interpolation, borrow values from a nearby station, or
@@ -324,7 +325,8 @@ Canadian data at once. Loading only "dates after the last load" would silently m
   and the next run picks up cleanly; every other multi-statement write works the same way.
 - **dbt:** `fct_observations` is incremental and reprocesses only rows NOAA changed (from the change
   log, removals as tombstones), rows of an element whose policy changed in config (bounds, scale,
-  absent rule), and stations or elements newly in scope. TMAX and TMIN are assessed as a pair, so a
+  absent rule), and stations or elements newly in scope; a station that leaves scope is deleted, as a
+  full rebuild would. TMAX and TMIN are assessed as a pair, so a
   change to one reprocesses the other for that day. Verified on a copy of the warehouse: four
   simulated NOAA changes rewrote exactly four rows; changing TMAX's upper bound rewrote only TMAX's
   rows. `--full-refresh` is needed only when model SQL itself changes.
@@ -543,7 +545,7 @@ app/                       the Python pipeline: the wx CLI and its stages
     transform/             2. runs the dbt project
     narrate/               3. marts -> narratives: pipeline, providers, validation, evaluation
     observe/               across stages: ops ledger, health, report (report_template.html), reset
-  tests/                   66 unit and integration tests (pytest)
+  tests/                   68 unit and integration tests (pytest)
 dbt/                       2. the SQL: staging -> intermediate -> marts, tests, macros (no packages)
 llm/                       3. what the narrative stage reads
   prompts/                 narrative prompts, versioned (v3 is current)

@@ -9,6 +9,10 @@ on:
 # tests, then the whole pipeline against live NOAA data. No GEMINI_API_KEY is configured, so
 # narratives use the offline mock provider; the connector's Gemini paths are covered by unit tests
 # with a fake client.
+# Actions are pinned to commit SHAs (the version in the comment): a tag can be moved to other code.
+permissions:
+  contents: read
+
 jobs:
   pipeline:
     # The same commands on all three systems a grader might use. Runner images are pinned:
@@ -23,8 +27,10 @@ jobs:
       run:
         shell: bash   # Git Bash on Windows, so every step runs identically
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0   # no floating major tag is published
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # no later step needs the token in .git/config
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
           python-version: "3.12"
           enable-cache: true
@@ -42,7 +48,7 @@ jobs:
         run: uv run wx run
       - name: Health report
         run: uv run wx health --out health_report.md
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         if: always()
         with:
           name: results-${{ matrix.os }}

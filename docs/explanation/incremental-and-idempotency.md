@@ -18,11 +18,17 @@ silently miss all of that.
 - **Facts:** `fct_observations` is incremental and reprocesses only rows in the change log, rows of an
   element whose rule changed in config (tracked by a `policy_hash`), and stations or elements newly in
   scope. TMAX and TMIN are assessed as a pair, so a change to one reprocesses the other. Removed rows
-  become tombstones (`removed_at_source`) rather than disappearing.
+  become tombstones (`removed_at_source`) rather than disappearing. A station that leaves scope (a city
+  removed or re-pointed in config) is deleted from the table, as a full rebuild would.
+- **Mass removals:** NOAA removes a few readings at most. A file that would remove more than
+  `max_deleted_pct` (5%) of a station's rows is far more likely truncated or badly regenerated at the
+  source, still valid gzip, so it isn't applied: the station keeps its last good load, the health
+  report shows an error, and every run retries until NOAA fixes it or `wx ingest --force` accepts it.
 
 Verified on a copy of the warehouse: four simulated NOAA changes rewrote exactly four rows; changing
 TMAX's upper bound rewrote only TMAX's 33,080 rows; an incremental build after a revision and a
-removal matched a full rebuild of the same data exactly.
+removal matched a full rebuild of the same data exactly, and so did one after removing a city from
+config (142,610 rows each).
 
 ## All or nothing
 

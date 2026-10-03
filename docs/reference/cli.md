@@ -7,7 +7,7 @@ and exits 1.
 
 | Command | Stage | Does | Options |
 |---|---|---|---|
-| `wx ingest` | 1 | Downloads NOAA's files, resolves stations, loads `raw` and `config` ([reference](app/ingest.md)) | `--force`: reload files even if unchanged |
+| `wx ingest` | 1 | Downloads NOAA's files, resolves stations, loads `raw` and `config` ([reference](app/ingest.md)) | `--force`: reload files even if unchanged, and accept one that removes more than `max_deleted_pct` of a station's rows |
 | `wx transform` | 2 | `dbt build`: models, tests, hooks ([reference](dbt/models-and-tests.md)) | `--full-refresh`: rebuild incremental models from raw · `--select <selection>`: any dbt selection |
 | `wx narrate` | 3 | Writes and validates narratives for the latest days ([reference](llm/narratives.md)) | `--days N`: override `narratives.days` · `--provider auto\|gemini\|mock` |
 | `wx eval` | 3 | Scores a prompt and model on `llm/evals/cases.yml` | `--prompt <file>`: default `narratives.prompt` · `--provider auto\|gemini\|mock` |

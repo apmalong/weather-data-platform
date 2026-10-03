@@ -3,7 +3,7 @@
 These are what CI runs on every push. Run them before committing:
 
 ```bash
-uv run pytest                                   # 66 Python tests (app/tests)
+uv run pytest                                   # 68 Python tests (app/tests)
 uv run black --check app orchestration          # Python formatting
 uv run ruff check .                             # Python lint
 uv run sqlfluff lint dbt/models dbt/tests       # SQL style (Matt Mazur's guide)

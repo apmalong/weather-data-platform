@@ -30,7 +30,7 @@ One status for the whole pipeline, with the reasons and a section per stage.
 
 | Status | When |
 |---|---|
-| ERROR | The latest run of a stage failed; a dbt error-severity test failed; a station is stale; a current narrative failed validation |
+| ERROR | The latest run of a stage failed; a station file was refused for removing more than `max_deleted_pct` of its rows; a dbt error-severity test failed; a station is stale; a current narrative failed validation |
 | WARN | Lagging data; a station file's row count swung more than `volume_change_warn_pct`; a dbt warning; rejected rows; narratives deferred by the request cap or quota |
 | OK | Neither |
 

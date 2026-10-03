@@ -33,7 +33,20 @@ create table if not exists raw.rejected_rows (
     reason varchar, rejected_at timestamp);
 """
 
+# Which of a station/date/element's duplicate rows is kept: ordered by every column, so the same file
+# always keeps the same row (ordering by value alone could keep either of two rows that differ only in
+# their flags, and the next load would log a revision NOAA never made).
+_RANK = "row_number() over (partition by obs_date, element order by value, mflag, qflag, sflag, obs_time)"
 _FLAGS = "concat_ws('|', coalesce(mflag, ''), coalesce(qflag, ''), coalesce(sflag, ''), coalesce(obs_time, ''))"
+
+
+class TooManyDeletes(RuntimeError):
+    def __init__(self, station_id: str, deleted: int, existing: int, limit: float):
+        super().__init__(
+            f"{station_id}: the new file would remove {deleted} of {existing} rows "
+            f"({100 * deleted / existing:.1f}%, limit {limit:g}%); kept the previous load"
+        )
+        self.station_id, self.deleted, self.existing, self.limit = station_id, deleted, existing, limit
 
 
 def ensure_schema(conn) -> None:
@@ -116,8 +129,12 @@ def load_element_catalog(conn, run_id: str, readme: str) -> int:
 
 
 @ops.atomic
-def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: str) -> dict:
-    """Merge one station's file into raw.observations; returns counts of read, rejected and changes."""
+def load_observations(
+    conn, run_id: str, station_id: str, path: Path, sha256: str, max_deleted_pct: float | None = None
+) -> dict:
+    """Merge one station's file into raw.observations; returns counts of read, rejected and changes.
+    Raises TooManyDeletes, changing nothing, if the file would remove more than max_deleted_pct of the
+    station's rows (None: no limit)."""
     started = time.time()
     columns = ", ".join(f"'{name}': 'VARCHAR'" for name in formats.OBSERVATION_COLUMNS)
     # DuckDB keeps the rejects tables for the whole connection, so clear them: otherwise one station's
@@ -148,7 +165,7 @@ def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: st
         create or replace temp table _incoming as
         select *, md5(concat_ws('|', coalesce(value, ''), {_FLAGS})) as _row_hash
         from _incoming_all where station_id = ?
-        qualify row_number() over (partition by obs_date, element order by value) = 1""",
+        qualify {_RANK} = 1""",
         [station_id],
     )
     read = conn.execute("select count(*) from _incoming_all").fetchone()[0]
@@ -170,7 +187,7 @@ def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: st
         insert into raw.rejected_rows
         select ?, ?, ?, null, {line}, 'duplicate of ' || obs_date || ' ' || element || ' (another row was kept)', ?
         from _incoming_all where station_id = ?
-        qualify row_number() over (partition by obs_date, element order by value) > 1""",
+        qualify {_RANK} > 1""",
         [run_id, path.name, station_id, now, station_id],
     )
     ops.check(conn, run_id, "load", "rows_belong_to_station", station_id, foreign == 0, foreign, 0)
@@ -195,6 +212,17 @@ def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: st
         where o._row_hash is distinct from i._row_hash""",
         [station_id],
     )
+    # NOAA removes a few readings at most; a file missing a large share of a station's rows is far more
+    # likely truncated or regenerated badly at the source (it can still be valid gzip). Applying it would
+    # tombstone that history, so refuse: the transaction rolls back and the station keeps its last good load.
+    if max_deleted_pct is not None:
+        deleted, existing = conn.execute(
+            """select (select count(*) from _changes where change = 'delete'),
+                      (select count(*) from raw.observations where station_id = ?)""",
+            [station_id],
+        ).fetchone()
+        if existing and 100 * deleted / existing > max_deleted_pct:
+            raise TooManyDeletes(station_id, deleted, existing, max_deleted_pct)
     conn.execute("insert into raw.observation_changes select ?, *, ? from _changes", [run_id, now])
     conn.execute("""delete from raw.observations o
                     where exists (select 1 from _changes c
