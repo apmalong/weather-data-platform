@@ -54,6 +54,7 @@ validation:
 
 nav:
   - Home: README.md
+  - Results report: https://apmalong.github.io/weather-data-platform/report/
   - Tutorial:
       - Getting started: tutorials/getting-started.md
   - How-to guides:

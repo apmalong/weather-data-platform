@@ -11,7 +11,9 @@ command turns into a health report.
 
 [![ci](https://github.com/apmalong/weather-data-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/apmalong/weather-data-platform/actions/workflows/ci.yml)
 CI runs the whole pipeline against live NOAA data on every push, from a clean checkout.
-Documentation: **[apmalong.github.io/weather-data-platform](https://apmalong.github.io/weather-data-platform/)**.
+Documentation: **[apmalong.github.io/weather-data-platform](https://apmalong.github.io/weather-data-platform/)**, with the
+[results report](https://apmalong.github.io/weather-data-platform/report/) and
+[dbt docs](https://apmalong.github.io/weather-data-platform/dbt/) built from a fresh run.
 
 ## Who this is for
 

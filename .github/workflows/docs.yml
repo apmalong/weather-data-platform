@@ -2,16 +2,20 @@ name: docs
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "mkdocs.yml", "dbt/**", "config/**", ".github/workflows/docs.yml"]
+    paths: ["docs/**", "mkdocs.yml", "dbt/**", "config/**", "app/**", "llm/**", ".github/workflows/docs.yml"]
   pull_request:
-    paths: ["docs/**", "mkdocs.yml", "dbt/**", "config/**", ".github/workflows/docs.yml"]
+    paths: ["docs/**", "mkdocs.yml", "dbt/**", "config/**", "app/**", "llm/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
-# One GitHub Pages site (https://apmalong.github.io/weather-data-platform/), built from two sources:
-#   /       docs/ with MkDocs Material; --strict fails the build on a broken link or anchor
-#   /dbt/   dbt's own docs (models, columns, tests, lineage), from a freshly built warehouse so the
-#           catalog has every column and type
-# Pages serves one site per repo, so both are built and deployed together here; a second workflow
+# One GitHub Pages site (https://apmalong.github.io/weather-data-platform/), built from three sources:
+#   /         docs/ with MkDocs Material; --strict fails the build on a broken link or anchor
+#   /dbt/     dbt's own docs (models, columns, tests, lineage), from a freshly built warehouse so the
+#             catalog has every column and type
+#   /report/  the results page (wx report) from that warehouse, with Gemini narratives and an
+#             evaluation of the current prompt. The key is a repository secret, never used on pull
+#             requests; without it (deleted, retired, out of quota) narratives fall back to the
+#             offline mock and the evaluation is skipped, so the site still deploys.
+# Pages serves one site per repo, so all three are built and deployed together here; a second workflow
 # deploying to Pages would overwrite this one. Pull requests build but don't deploy.
 permissions:
   contents: read
@@ -37,15 +41,25 @@ jobs:
         run: |
           uv run wx ingest
           uv run wx transform
+      - name: Narratives (Gemini; the mock if Gemini is unavailable)
+        env:
+          GEMINI_API_KEY: ${{ github.event_name != 'pull_request' && secrets.GEMINI_API_KEY || '' }}
+        run: uv run wx narrate || uv run wx narrate --provider mock
+      - name: Evaluate the current prompt (the report's Evaluation tab)
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ github.event_name != 'pull_request' && secrets.GEMINI_API_KEY || '' }}
+        run: if [ -n "$GEMINI_API_KEY" ]; then uv run wx eval; else echo "no key: evaluation skipped"; fi
       - name: dbt docs (one self-contained page)
         working-directory: dbt
         run: uv run dbt docs generate --static --profiles-dir .
       - name: MkDocs site
         run: uv run mkdocs build --strict
-      - name: Add the dbt docs under /dbt/
+      - name: Add the dbt docs under /dbt/ and the report under /report/
         run: |
           mkdir -p site/dbt
           cp dbt/target/static_index.html site/dbt/index.html
+          uv run wx report --out site/report/index.html
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
