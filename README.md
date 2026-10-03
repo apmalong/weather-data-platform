@@ -358,6 +358,12 @@ Failing data-test rows land in the `audit` schema, one table per test (dbt's `st
 its severity and the failing row as JSON. `select * from audit.all_failures` is empty when everything
 passes.
 
+`audit.data_issues` answers "what's wrong with the data?" in one query: every value NOAA flagged or
+we quarantined, every line that couldn't be loaded, every value NOAA revised or removed after
+publishing, and every test failure, each with its city, date, element, value and reason (e.g.
+"failed NOAA quality check I: internal consistency"). Today it holds the 51 values NOAA's checks
+failed, 6 of them in the window. Expected gaps aren't issues; `mart_data_quality` counts those.
+
 `wx report` puts it all on one page for people: an overview with the health status; the weather per
 city (temperature, precipitation, snowfall and peak gusts with their direction, over 30 days to the
 whole window, gaps shown as gaps, or as a table); completeness per city and element and what NOAA changed; every narrative beside the

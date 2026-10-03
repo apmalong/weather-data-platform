@@ -160,3 +160,9 @@ tables, so they show the latest build only.
 
 It covers only the tests the project defines now, so a renamed or removed test's leftover table
 can't show stale failures. Empty means every test passed.
+
+`audit.data_issues`, rebuilt by the next hook, lists every data problem from wherever it's kept, one
+row per issue: `issue_type` (`quarantined`, `rejected_row`, `revised_by_noaa`, `test_failure`),
+`severity` (`info` for issues the pipeline already handles, `warn`, `error`), `station_id`, `city`,
+`obs_date`, `element`, `value`, `reason`, `found_in` (the table to look in for detail) and
+`detected_at`.
