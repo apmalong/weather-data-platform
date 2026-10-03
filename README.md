@@ -418,12 +418,24 @@ so, and the task retries.
   instead of a report; OpenTelemetry traces for LLM calls.
 - **Narratives:** a model-graded score for tone and clarity in evaluation (costs quota, so off by
   default); run `wx eval` automatically when the model list changes; per-city monthly summaries.
-- **Data:** evaluate switching the Canadian source from NOAA to Environment Canada's API
-  (`api.weather.gc.ca`, `climate-daily`). It's the originating source: a day fresher, and it has
-  readings NOAA's copy dropped (21 snow-depth days at Toronto and Calgary alone). Against that, it
-  covers Canada only, lacks NOAA's quality checks and flags, and the station metadata and inventory
-  that drive selection would have to come from somewhere else. A middle path is to keep NOAA and fill
-  gaps from Environment Canada, recording the source of each value.
+- **Data: Environment Canada first for Canadian stations, NOAA for quality and gaps.** Environment
+  Canada's API (`api.weather.gc.ca`, `climate-daily`) is the originating source. On 2026-10-03 it had
+  data to 2 October while NOAA's files stopped at 29 September, and it has readings NOAA's copy
+  dropped (21 snow-depth days at Toronto and Calgary alone). Its climate ID is inside the NOAA ID
+  (CAN0**1108395** → 1108395), so stations match mechanically. The design:
+  - Take each day from Environment Canada as soon as it's published (provisional).
+  - When NOAA publishes the same day, apply NOAA's quality flags to it even if the value came from
+    Environment Canada (NOAA's checks produced all 51 `qc_failed` values here), and fill any reading
+    Environment Canada lacks from NOAA.
+  - Record the source of every value, and run the existing change detection over both sources,
+    since Environment Canada revises recent days too.
+  - Convert units at the boundary: gusts arrive in km/h and directions in tens of degrees.
+    Definitions match for current data (NOAA's TAVG is Environment Canada's (max + min) ÷ 2,
+    18.6 °C in both for Ottawa on 12 August 2026), but NOAA's pre-2014 TAVG averaged hourly
+    readings, so history can't be mixed unlabelled.
+
+  NOAA stays essential: station selection runs on its metadata and inventory, and US stations
+  have no Environment Canada equivalent. Not built here because the brief specifies NOAA's files.
 - **More cities, in Canada and the US:** the selection rules already resolve 29 of the 35 cities
   tested, and the rest need one config field, so adding them is configuration. Three things need work
   first: element rules are global, but `absent_means_zero` describes Environment Canada's reporting

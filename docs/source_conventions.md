@@ -55,3 +55,34 @@ To change a display unit, edit `elements.display`: for example `WSFG: {unit: kno
 
 The two unhandled cases, and `-9999`, are listed in the README's "With more time". Each is a small
 config rule: treat a WSFG/WDFG pair of 0 as `not_reported`; treat `mflag P` and `-9999` as `missing`.
+
+## Environment Canada as a second source
+
+NOAA's Canadian data is a copy of Environment Canada's, and the copy lags and loses readings:
+
+- **Freshness:** on 2026-10-03, NOAA's files for all five stations ended on 29 September, while
+  Environment Canada's `climate-daily` API had 30 September to 2 October. NOAA's files carried a new
+  Last-Modified time but identical contents, which is why ingest compares bytes, not timestamps.
+- **Completeness:** Environment Canada had snow on the ground on 21 days at Toronto and Calgary
+  where NOAA's file has no reading, e.g. 4 cm at Vancouver on 2 February 2025.
+- **Agreement:** where both have a value, they matched on every day checked, including Vancouver's
+  snowless 2025–26 winter (no measurable snowfall; trace on 20 February, 10 and 15 March 2026).
+
+Mapping between the two: the climate ID is the NOAA station ID without `CAN0` (CAN01108395 →
+1108395). Field names and units differ; checked on Ottawa, 12 August 2026 (a 107 km/h gust):
+
+| NOAA | Environment Canada | Difference |
+|---|---|---|
+| TMAX / TMIN (tenths of °C) | MAX_TEMPERATURE / MIN_TEMPERATURE (°C) | Units only |
+| TAVG (tenths of °C) | MEAN_TEMPERATURE (°C) | Units only for current data: both are (max + min) ÷ 2 (18.6 °C from 24.0 and 13.2). NOAA's source-`S` TAVG before 2014 averaged hourly readings instead. |
+| PRCP (tenths of mm) | TOTAL_PRECIPITATION (mm) | Units only |
+| SNOW (mm) | TOTAL_SNOW (cm) | Units only |
+| SNWD (mm) | SNOW_ON_GROUND (cm) | Units only |
+| WSFG (tenths of m/s) | SPEED_MAX_GUST (km/h) | Units only: 29.7 m/s × 3.6 = 107 km/h |
+| WDFG (degrees) | DIRECTION_MAX_GUST (tens of degrees) | Units only: 31 → 310° |
+| `mflag T` | `*_FLAG = T` | Same meaning: trace |
+| `qflag` (NOAA's checks) | none | Environment Canada's recent values are provisional; NOAA's checks run later |
+
+The README's "With more time" describes how the two could be combined: Environment Canada first for
+freshness, NOAA's quality flags applied when they arrive, NOAA filling gaps, and the source recorded
+for every value.
