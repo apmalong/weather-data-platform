@@ -25,7 +25,7 @@ elements in tenths of units, quality flags that are easy to miss, and gaps that 
   staffing, energy, deliveries). The marts are for them, with data quality and freshness measured
   so they can tell when the gap is in the weather data, not in their own.
 
-It is not a forecast (NOAA's daily data arrives 1–3 days late) and not hyperlocal (one airport
+It is not a forecast (NOAA's daily data arrives a few days late) and not hyperlocal (one airport
 station per metro area), and the narratives describe the weather, never its effects. Success means
 correct narratives, ready by the next morning, with data tests passing and core elements complete.
 
@@ -53,7 +53,7 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 |---|---|
 | `wx ingest` | Downloads NOAA's reference files, resolves each configured city to a station from the metadata, downloads and loads its observations (skipping unchanged files) |
 | `wx transform` | `dbt build`: 19 models across staging, intermediate and marts, plus 69 data tests and 2 unit tests. `--full-refresh` rebuilds from raw |
-| `wx narrate` | Daily narratives for the last 14 days, in batches, validated against the data; cached, so reruns only do new or revised days |
+| `wx narrate` | Daily narratives for the last 14 days, in batches, validated against the data; cached, so reruns only do new or revised days. Skips stations whose data is stale |
 | `wx eval` | Scores a narrative prompt and model on hard cases (`evals/cases.yml`): `--prompt prompts/narrative_v1.md` |
 | `wx health` | One report: runs, checks, dbt tests, data quality, NOAA's revisions, narratives, evaluation. `--strict` exits 1 on errors |
 | `wx report` | Writes `data/report.html`: one self-contained page, data embedded, nothing to install or serve |
@@ -61,18 +61,33 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | `wx reset` | Start over: the warehouse (keeps downloads); `--all` also the downloads and report, like a fresh clone; `--narratives` only the narrative cache. Asks first unless `--yes` |
 | `wx --explore` | Opens the warehouse in DuckDB's web UI at http://localhost:4213, read-only; before a command (`wx --explore run`), once the command finishes. Ctrl+C stops it |
 
-Everything lands in one DuckDB file, `data/warehouse.duckdb`. Open it with the DuckDB CLI or any
-SQL client, for example:
+Everything lands in one DuckDB file, `data/warehouse.duckdb`. Browse it with `uv run wx --explore`,
+or any SQL client, for example:
 
 ```sql
 select city, obs_date, tmax, tmin, prcp, prcp_status, snow, wsfg from marts.mart_station_daily
 order by obs_date desc, city limit 10;
 
-select city, obs_date, narrative, passed from narratives.latest join marts.dim_station using (station_id)
-order by obs_date desc limit 10;
+select s.city, n.obs_date, n.narrative, n.passed
+from narratives.latest n join marts.dim_station s on s.station_id = n.station_id
+order by n.obs_date desc limit 10;
+
+select issue_type, city, obs_date, element, value, reason from audit.data_issues order by obs_date desc;
 ```
 
 To run it on a schedule instead, see [Orchestration](#orchestration-optional).
+
+## Documentation
+
+| Document | What's in it |
+|---|---|
+| [docs/ingestion.md](docs/ingestion.md) | `wx ingest` step by step: what each step does, checks and records; how it fails; its tests |
+| [docs/dbt_models.md](docs/dbt_models.md) | Every dbt model with its grain, purpose and tests; the test inventory; the end-of-build hooks |
+| [docs/source_conventions.md](docs/source_conventions.md) | NOAA's units and conversions, values that mean more than their number (trace, sentinels), and how Environment Canada's data maps to NOAA's |
+| [docs/metadata_columns.md](docs/metadata_columns.md) | Every lineage, change, quality and run column, and the `ops`, `narratives` and `audit` schemas |
+| [docs/health_report.md](docs/health_report.md) | An example of `wx health` output |
+
+This README covers the design decisions and tradeoffs; the documents above go into detail.
 
 ## Architecture
 
@@ -94,6 +109,7 @@ flowchart LR
     marts["marts.*<br/>facts, dims, daily,<br/>quality, changes"]
     narr["narratives.*"]
     ops["ops.*<br/>runs, downloads, loads, checks,<br/>dbt results, LLM calls, evals"]
+    audit["audit.*<br/>test failures, data issues"]
   end
   llm["Gemini (or offline mock)"]
   cfg --> ingest
@@ -105,17 +121,19 @@ flowchart LR
   marts -->|"wx narrate:<br/>batched, cached"| llm -->|"validated against<br/>the facts"| narr
   ingest -.-> ops
   marts -.->|"dbt on-run-end"| ops
+  marts -.->|"dbt on-run-end"| audit
   narr -.-> ops
   ops -->|"wx health"| report["health report"]
 ```
 
 | Layer | Models | Purpose |
 |---|---|---|
-| `raw` | observations (+ change log), stations, inventory, countries, states, element catalog, documents | NOAA's files as published, all text, with lineage |
+| `raw` | observations (+ change log and rejected rows), stations, inventory, countries, states, element catalog, documents | NOAA's files as published, all text, with lineage |
 | `config` | selected_stations, window, elements, quality | This run's scope, published by ingest, so dbt needs nothing but the warehouse |
-| `staging` | `stg_ghcnd__*`, `stg_config__run_scope` | Typed and parsed; nothing fails a cast, it fails a test |
+| `staging` | `stg_ghcnd__*`, `stg_config__run_scope` | Typed and parsed; a value that doesn't parse becomes null and is flagged downstream, so nothing fails a cast |
 | `intermediate` | selected stations, elements in scope, station-element coverage, assessed observations | Scope from the metadata; every value scaled and given a quality status |
 | `marts` | `fct_observations` (incremental), `fct_station_day_element`, `mart_station_daily`, `mart_data_quality`, `mart_source_changes`, `mart_narrative_input`, `dim_station`, `dim_element` | What people and the narratives use |
+| `audit` | one table of failing rows per dbt test, `all_failures`, `data_issues` | What's wrong, in one place |
 
 In more detail: [docs/ingestion.md](docs/ingestion.md) walks through `wx ingest` step by step,
 with what each step checks and records and the tests behind it; [docs/dbt_models.md](docs/dbt_models.md)
@@ -235,7 +253,7 @@ written to the warehouse as column comments on every build.
 | Layer | What is checked |
 |---|---|
 | Download | HTTP status, non-empty, gzip integrity, content fingerprint |
-| Load | Readme layouts unchanged; rows parse; rows belong to the file's station; no duplicate station/date/element |
+| Load | Readme layouts unchanged; rows parse; rows belong to the file's station; no duplicate station/date/element. Rows that fail are kept in `raw.rejected_rows`, and each file's merge is one transaction |
 | Staging | Dates and values parse; quality and measurement flags are codes the readme defines; coordinates in range |
 | Intermediate | Each value gets a status: `valid`, `trace`, `qc_failed` (NOAA's quality flag set), `out_of_bounds` (outside physical bounds in config), `inconsistent` (TMAX below TMIN that day), `unparseable` |
 | Marts | Every station × day × element in the window gets a status, so gaps are countable rows; TMAX ≥ TMIN among usable values; TAVG within [TMIN, TMAX]; completeness; freshness per station |
@@ -289,10 +307,13 @@ Canadian data at once. Loading only "dates after the last load" would silently m
 - **Files:** every download is fingerprinted (SHA-256). An unchanged file isn't parsed again.
   NOAA's `Last-Modified` header can't be used for this: the frozen `CA0…` files show yesterday's date.
 - **Rows:** a changed file is merged row by row. New, changed and vanished rows are applied and
-  logged in `raw.observation_changes`; `mart_source_changes` counts NOAA's revisions per run.
+  logged in `raw.observation_changes`; `mart_source_changes` counts NOAA's revisions per run. Each
+  file's merge is one transaction, so an interrupted run leaves raw and the change log as they were
+  and the next run picks up cleanly; every other multi-statement write works the same way.
 - **dbt:** `fct_observations` is incremental and reprocesses only rows NOAA changed (from the change
   log, removals as tombstones), rows of an element whose policy changed in config (bounds, scale,
-  absent rule), and stations or elements newly in scope. Verified on a copy of the warehouse: four
+  absent rule), and stations or elements newly in scope. TMAX and TMIN are assessed as a pair, so a
+  change to one reprocesses the other for that day. Verified on a copy of the warehouse: four
   simulated NOAA changes rewrote exactly four rows; changing TMAX's upper bound rewrote only TMAX's
   rows. `--full-refresh` is needed only when model SQL itself changes.
 - **Narratives:** cached by a fingerprint of their input facts, the model and the prompt version, so
@@ -495,7 +516,7 @@ dbt/                      staging -> intermediate -> marts, tests, macros (no pa
 prompts/                  narrative prompts, versioned
 evals/cases.yml           the evaluation set
 orchestration/            optional Airflow (Dockerfile, compose, DAG)
-tests/                    unit and integration tests (pytest)
+tests/                    66 unit and integration tests (pytest); dbt tests live in dbt/
 docs/                     ingestion, dbt models and tests, NOAA conventions, metadata columns, example health report
 src/wx/report_template.html   the results page (React via CDN, data embedded by `wx report`)
 ```
