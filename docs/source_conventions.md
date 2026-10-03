@@ -14,8 +14,9 @@ NOAA stores every value as an integer. Two steps turn it into what a reader sees
    is 1.2 mm, as the brief notes. Nothing is hand-coded per element. Values are stored at fixed
    precision (`decimal(12,1)`) so 0.1 scaling never produces float noise.
 2. **Display (from config, for readers).** `elements.display` in `config/pipeline.yml` converts a few
-   elements from NOAA's unit into the one Canadians read on a forecast. Only narratives, the report
-   and their inputs use display units; the facts and marts keep NOAA's units.
+   elements from NOAA's unit into the one Canadians read on a forecast. Only
+   `mart_narrative_input`, the narratives and the report use display units; the fact tables and the
+   daily and quality marts keep NOAA's units.
 
 | Element | NOAA's integer is | Scale | Stored unit | Display | Factor | Why |
 |---|---|---|---|---|---|---|

@@ -155,8 +155,8 @@ From config: physically plausible range in the element's unit. Values outside ar
 
 {% docs display_unit %}
 From config: the unit narratives and the report use (km/h for gusts, cm for snow), with
-`display_factor` converting from the stored unit (m/s × 3.6 = km/h; mm × 0.1 = cm). The marts keep
-NOAA's units. docs/source_conventions.md gives each element's unit chain and the reason for it.
+`display_factor` converting from the stored unit (m/s × 3.6 = km/h; mm × 0.1 = cm). Fact tables and the
+daily mart keep NOAA's units. docs/source_conventions.md gives each element's unit chain and the reason for it.
 {% enddocs %}
 
 {% docs network_code %}
