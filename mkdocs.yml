@@ -54,7 +54,6 @@ validation:
 
 nav:
   - Home: README.md
-  - Results report: https://apmalong.github.io/weather-data-platform/report/
   - Tutorial:
       - Getting started: tutorials/getting-started.md
   - How-to guides:
@@ -74,7 +73,6 @@ nav:
           - Health report example: reference/app/health-report-example.md
       - dbt:
           - Models and tests: reference/dbt/models-and-tests.md
-          - dbt docs (lineage, columns): https://apmalong.github.io/weather-data-platform/dbt/
       - llm:
           - Narrative stage: reference/llm/narratives.md
       - orchestration:
@@ -91,3 +89,6 @@ nav:
       - Narratives: explanation/narratives.md
       - NOAA and Environment Canada: explanation/noaa-and-environment-canada.md
       - Code style and naming: explanation/code-style.md
+  # The pipeline's outputs, rebuilt from a fresh run on every deploy, after the four kinds of documentation
+  - Results report: https://apmalong.github.io/weather-data-platform/report/
+  - dbt docs: https://apmalong.github.io/weather-data-platform/dbt/
