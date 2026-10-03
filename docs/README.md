@@ -2,7 +2,8 @@
 
 Organised with [Diátaxis](https://diataxis.fr): four kinds of page, each answering a different need.
 Live results from a fresh run: the [results report](https://apmalong.github.io/weather-data-platform/report/)
-and [dbt docs](https://apmalong.github.io/weather-data-platform/dbt/). The repository's own [README](https://github.com/apmalong/weather-data-platform#readme) is the entry point: setup, architecture, design decisions
+and [dbt docs](https://apmalong.github.io/weather-data-platform/dbt/), and that run's warehouse to
+[query in the browser](https://apmalong.github.io/weather-data-platform/query/). The repository's own [README](https://github.com/apmalong/weather-data-platform#readme) is the entry point: setup, architecture, design decisions
 and tradeoffs.
 
 | If you want to… | Read |

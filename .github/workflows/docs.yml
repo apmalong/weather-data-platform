@@ -7,7 +7,7 @@ on:
     paths: ["docs/**", "mkdocs.yml", "dbt/**", "config/**", "app/**", "llm/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
-# One GitHub Pages site (https://apmalong.github.io/weather-data-platform/), built from three sources:
+# One GitHub Pages site (https://apmalong.github.io/weather-data-platform/), built from these sources:
 #   /         docs/ with MkDocs Material; --strict fails the build on a broken link or anchor
 #   /dbt/     dbt's own docs (models, columns, tests, lineage), from a freshly built warehouse so the
 #             catalog has every column and type
@@ -15,7 +15,9 @@ on:
 #             evaluation of the current prompt. The key is a repository secret, never used on pull
 #             requests; without it (deleted, retired, out of quota) narratives fall back to the
 #             offline mock and the evaluation is skipped, so the site still deploys.
-# Pages serves one site per repo, so all three are built and deployed together here; a second workflow
+#   /data/warehouse.duckdb  that warehouse itself, read-only, queryable from any DuckDB client
+#   /query/   a page that queries it in the browser with DuckDB-WASM (docs/query/index.html)
+# Pages serves one site per repo, so all of it is built and deployed together here; a second workflow
 # deploying to Pages would overwrite this one. Pull requests build but don't deploy.
 permissions:
   contents: read
@@ -58,9 +60,26 @@ jobs:
         run: uv run mkdocs build --strict
       - name: Add the dbt docs under /dbt/ and the report under /report/
         run: |
-          mkdir -p site/dbt
+          mkdir -p site/dbt site/data
           cp dbt/target/static_index.html site/dbt/index.html
           uv run wx report --out site/report/index.html
+      - name: Publish the warehouse under /data/ (refuses if anything looks like a credential)
+        run: |
+          uv run python - <<'EOF'
+          import duckdb, shutil
+          conn = duckdb.connect("data/warehouse.duckdb")
+          conn.execute("checkpoint")   # fold the write-ahead log into the file
+          columns = conn.execute("""select table_schema, table_name, column_name from information_schema.columns
+                                      where data_type in ('VARCHAR', 'JSON')""").fetchall()
+          key_pattern = "AIza[0-9A-Za-z_-]{30,}"   # the shape of a Google API key
+          for schema, table, column in columns:
+              query = f'select count(*) from "{schema}"."{table}" where regexp_matches("{column}"::varchar, ?)'
+              hits = conn.execute(query, [key_pattern]).fetchone()[0]
+              assert hits == 0, f"{schema}.{table}.{column} contains something that looks like an API key"
+          conn.close()
+          shutil.copy("data/warehouse.duckdb", "site/data/warehouse.duckdb")
+          print(f"{len(columns)} text columns checked; warehouse published")
+          EOF
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site

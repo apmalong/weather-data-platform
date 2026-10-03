@@ -13,7 +13,9 @@ command turns into a health report.
 CI runs the whole pipeline against live NOAA data on every push, from a clean checkout.
 Documentation: **[apmalong.github.io/weather-data-platform](https://apmalong.github.io/weather-data-platform/)**, with the
 [results report](https://apmalong.github.io/weather-data-platform/report/) and
-[dbt docs](https://apmalong.github.io/weather-data-platform/dbt/) built from a fresh run.
+[dbt docs](https://apmalong.github.io/weather-data-platform/dbt/) built from a fresh run, and that run's warehouse to
+[query in the browser](https://apmalong.github.io/weather-data-platform/query/) or from any DuckDB client
+(`attach 'https://apmalong.github.io/weather-data-platform/data/warehouse.duckdb' as wx`).
 
 ## Who this is for
 

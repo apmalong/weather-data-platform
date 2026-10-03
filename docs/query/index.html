@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Query the warehouse · Weather data platform</title>
+<style>
+  /* Layout: one column under a slim header; the SQL box and its results are the page. */
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --sunk: #eef1f4; --fg: #1d2630; --muted: #5d6b78;
+    --line: #d8dee4; --accent: #2f5f8f; --accent-fg: #ffffff; --bad: #a33a2b;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --sans: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14191f; --surface: #1b222a; --sunk: #10151a; --fg: #e3e8ed; --muted: #97a4b1;
+            --line: #2c3743; --accent: #7fb0e0; --accent-fg: #10151a; --bad: #ec8b7d; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); }
+  header { background: #546e7a; color: #fff; padding: 12px 16px; }
+  header .in { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; }
+  header a { color: #fff; } header b { font-size: 1.05rem; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 16px 48px; display: grid; gap: 14px; }
+  h1 { margin: 0; font-size: 1.5rem; font-weight: 500; }
+  p { margin: 0; } .muted { color: var(--muted); }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: 500 0.88rem var(--sans); border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+           border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  textarea { width: 100%; min-height: 150px; resize: vertical; font: 0.9rem/1.5 var(--mono); padding: 10px 12px;
+             background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  #status { font-size: 0.88rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #status.error { color: var(--bad); white-space: pre-wrap; font-family: var(--mono); font-size: 0.82rem; }
+  .results { overflow: auto; max-height: 70vh; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 0.85rem; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; max-width: 520px; }
+  th { position: sticky; top: 0; background: var(--sunk); font-weight: 600; z-index: 1; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.null { color: var(--muted); font-style: italic; }
+  .results:empty { display: none; }
+</style>
+</head>
+<body>
+<header><div class="in"><b>Weather data platform</b><a href="../">Documentation</a><a href="../report/">Results report</a><a href="../dbt/">dbt docs</a></div></header>
+<main>
+  <h1>Query the warehouse</h1>
+  <p class="muted">The warehouse from the latest deploy, queried in your browser with
+    <a href="https://duckdb.org/docs/api/wasm/overview">DuckDB-WASM</a>: read-only, nothing to install,
+    nothing sent to a server. It downloads only the parts of the file a query needs. The same file works from
+    any DuckDB client: <code>attach '<span id="fileurl">…/data/warehouse.duckdb</span>' as wx</code>.</p>
+
+  <div class="examples" id="examples"></div>
+  <textarea id="sql" spellcheck="false" aria-label="SQL"></textarea>
+  <div class="bar">
+    <button class="primary" id="run" disabled>Run (Ctrl+Enter)</button>
+    <span id="status">Loading DuckDB…</span>
+  </div>
+  <div class="results" id="results"></div>
+</main>
+
+<script type="module">
+const EXAMPLES = [
+  ["Tables and what they hold", `select schema_name, table_name, comment
+from duckdb_tables()
+where database_name = 'warehouse' and schema_name in ('marts', 'raw', 'config', 'ops', 'narratives')
+order by schema_name, table_name;`],
+  ["What's wrong with the data", `select issue_type, severity, city, obs_date, element, value, reason
+from audit.data_issues
+order by obs_date desc;`],
+  ["Daily weather", `-- the mart keeps NOAA's units (mm, m/s); converted here to the ones readers use
+select
+    city,
+    obs_date,
+    tmax as high_c,
+    tmin as low_c,
+    prcp as precip_mm,
+    prcp_status,
+    snow / 10 as snowfall_cm,
+    snwd / 10 as snow_depth_cm,
+    round(wsfg * 3.6) as peak_gust_kmh
+from marts.mart_station_daily
+order by obs_date desc, city
+limit 50;`],
+  ["Data quality", `select city, element, completeness, missing_days, qc_failed_days, freshness, last_usable_date
+from marts.mart_data_quality
+order by completeness;`],
+  ["Narratives", `select stations.city, latest.obs_date, latest.narrative, latest.passed, latest.model
+from narratives.latest as latest
+inner join marts.dim_station as stations on latest.station_id = stations.station_id
+order by latest.obs_date desc, stations.city;`],
+  ["Why each station was chosen", `select city, station_id, station_name, reason
+from ops.station_resolution
+where selected = true and run_id = (select max(run_id) from ops.station_resolution);`],
+  ["Column descriptions (marts)", `select table_name, column_name, data_type, comment
+from duckdb_columns()
+where database_name = 'warehouse' and schema_name = 'marts' and comment is not null
+order by table_name, column_index;`],
+];
+const MAX_ROWS = 1000;
+const $ = (id) => document.getElementById(id);
+const sql = $("sql"), run = $("run"), status = $("status"), results = $("results");
+const fileUrl = new URL("../data/warehouse.duckdb", location.href).href;
+$("fileurl").textContent = fileUrl;
+
+for (const [label, query] of EXAMPLES) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = label;
+  b.onclick = () => { sql.value = query; execute(); };
+  $("examples").append(b);
+}
+sql.value = EXAMPLES[1][1];
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// DuckDB-WASM returns Arrow values: decimals as 128-bit words, dates and timestamps as epoch numbers.
+function decimal(words, scale) {
+  let n = 0n;
+  for (let i = words.length - 1; i >= 0; i--) n = (n << 32n) + BigInt(words[i] >>> 0);
+  if (words[words.length - 1] & 0x80000000) n -= 1n << BigInt(32 * words.length);
+  const neg = n < 0n;
+  let s = (neg ? -n : n).toString().padStart(scale + 1, "0");
+  if (scale > 0) s = s.slice(0, -scale) + "." + s.slice(-scale);
+  return (neg ? "-" : "") + s;
+}
+function cell(value, type) {
+  if (value === null || value === undefined) return { text: "null", cls: "null" };
+  const t = String(type);
+  if (t.startsWith("Decimal") && value.length !== undefined) return { text: decimal(value, type.scale), cls: "num" };
+  if (t.startsWith("Date")) return { text: new Date(Number(value)).toISOString().slice(0, 10), cls: "" };
+  if (t.startsWith("Timestamp")) return { text: new Date(Number(value)).toISOString().slice(0, 19).replace("T", " "), cls: "" };
+  if (typeof value === "bigint" || typeof value === "number") return { text: String(value), cls: "num" };
+  if (typeof value === "object") return { text: JSON.stringify(value, (_, v) => typeof v === "bigint" ? String(v) : v), cls: "" };
+  return { text: String(value), cls: "" };
+}
+
+let conn = null;
+async function execute() {
+  if (!conn || run.disabled) return;
+  run.disabled = true; status.className = ""; status.textContent = "Running…";
+  const started = performance.now();
+  try {
+    const table = await conn.query(sql.value);
+    const fields = table.schema.fields;
+    const shown = Math.min(table.numRows, MAX_ROWS);
+    let html = "<table><thead><tr>" + fields.map((f) => `<th>${esc(f.name)}</th>`).join("") + "</tr></thead><tbody>";
+    for (let i = 0; i < shown; i++) {
+      const row = table.get(i);
+      html += "<tr>" + fields.map((f) => { const c = cell(row[f.name], f.type); return `<td class="${c.cls}">${esc(c.text)}</td>`; }).join("") + "</tr>";
+    }
+    results.innerHTML = html + "</tbody></table>";
+    const ms = Math.round(performance.now() - started);
+    status.textContent = `${table.numRows.toLocaleString()} row${table.numRows === 1 ? "" : "s"}` +
+      (table.numRows > MAX_ROWS ? ` (showing the first ${MAX_ROWS.toLocaleString()})` : "") + ` in ${ms} ms`;
+  } catch (err) {
+    results.innerHTML = ""; status.className = "error"; status.textContent = String(err.message || err);
+  } finally {
+    run.disabled = false;
+  }
+}
+run.onclick = execute;
+sql.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); execute(); } });
+
+try {
+  const duckdb = await import("https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/+esm");
+  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+  const workerUrl = URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`], { type: "text/javascript" }));
+  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), new Worker(workerUrl));
+  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  URL.revokeObjectURL(workerUrl);
+  status.textContent = "Attaching the warehouse…";
+  await db.registerFileURL("warehouse.duckdb", fileUrl, duckdb.DuckDBDataProtocol.HTTP, false);
+  conn = await db.connect();
+  await conn.query("attach 'warehouse.duckdb' as warehouse (read_only)");
+  await conn.query("use warehouse");
+  run.disabled = false;
+  status.textContent = "Ready.";
+  execute();
+} catch (err) {
+  status.className = "error";
+  status.textContent = "Couldn't load DuckDB or the warehouse: " + String(err.message || err);
+}
+</script>
+</body>
+</html>

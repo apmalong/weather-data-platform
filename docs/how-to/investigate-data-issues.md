@@ -1,6 +1,8 @@
 # How to investigate data issues
 
-Open the warehouse read-only (stop it with Ctrl+C before running other `wx` commands):
+Without cloning anything, run the queries below against the latest published warehouse on the
+[query page](https://apmalong.github.io/weather-data-platform/query/). On your own warehouse, open it
+read-only (stop it with Ctrl+C before running other `wx` commands):
 
 ```bash
 uv run wx --explore

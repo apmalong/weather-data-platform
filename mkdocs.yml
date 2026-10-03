@@ -92,3 +92,4 @@ nav:
   # The pipeline's outputs, rebuilt from a fresh run on every deploy, after the four kinds of documentation
   - Results report: https://apmalong.github.io/weather-data-platform/report/
   - dbt docs: https://apmalong.github.io/weather-data-platform/dbt/
+  - Query: https://apmalong.github.io/weather-data-platform/query/
