@@ -11,3 +11,4 @@ dbt/logs/
 .pytest_cache/
 .ruff_cache/
 dbt/.user.yml
+site/

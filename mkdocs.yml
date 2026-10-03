@@ -1,0 +1,88 @@
+# The docs/ folder as a website, published to GitHub Pages by .github/workflows/docs.yml.
+#   uv run --group docs mkdocs serve            preview at http://127.0.0.1:8000
+#   uv run --group docs mkdocs build --strict   what CI runs: fails on a broken link or anchor
+site_name: Weather data platform
+site_description: NOAA GHCN-Daily for Canada's five largest metro airports, dbt on DuckDB, Gemini narratives validated against the data
+site_url: https://apmalong.github.io/weather-data-platform/
+repo_url: https://github.com/apmalong/weather-data-platform
+repo_name: apmalong/weather-data-platform
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.tabs          # Diátaxis sections as top tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue grey
+      accent: blue
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue grey
+      accent: blue
+      toggle: {icon: material/weather-sunny, name: Light mode}
+
+plugins:
+  - search
+
+markdown_extensions:
+  - tables
+  - admonition
+  - attr_list
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: info
+    unrecognized_links: warn
+
+nav:
+  - Home: README.md
+  - Tutorial:
+      - Getting started: tutorials/getting-started.md
+  - How-to guides:
+      - Add a city: how-to/add-a-city.md
+      - Change element rules: how-to/change-element-rules.md
+      - Change the narrative prompt: how-to/change-the-prompt.md
+      - Investigate data issues: how-to/investigate-data-issues.md
+      - Run on a schedule (Airflow): how-to/run-on-a-schedule.md
+      - Run the tests and style checks: how-to/run-checks.md
+      - Reset and rebuild: how-to/reset-and-rebuild.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Configuration: reference/configuration.md
+      - app:
+          - Ingest stage: reference/app/ingest.md
+          - Observe: reference/app/observe.md
+          - Health report example: reference/app/health-report-example.md
+      - dbt:
+          - Models and tests: reference/dbt/models-and-tests.md
+      - llm:
+          - Narrative stage: reference/llm/narratives.md
+      - orchestration:
+          - Airflow: reference/orchestration/airflow.md
+      - Warehouse:
+          - Metadata columns: reference/warehouse/metadata-columns.md
+      - NOAA:
+          - Conventions: reference/noaa/conventions.md
+  - Explanation:
+      - Architecture: explanation/architecture.md
+      - Station selection: explanation/station-selection.md
+      - Data quality: explanation/data-quality.md
+      - Incremental loading and idempotency: explanation/incremental-and-idempotency.md
+      - Narratives: explanation/narratives.md
+      - NOAA and Environment Canada: explanation/noaa-and-environment-canada.md
+      - Code style and naming: explanation/code-style.md

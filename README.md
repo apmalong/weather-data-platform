@@ -11,6 +11,7 @@ command turns into a health report.
 
 [![ci](https://github.com/apmalong/weather-data-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/apmalong/weather-data-platform/actions/workflows/ci.yml)
 CI runs the whole pipeline against live NOAA data on every push, from a clean checkout.
+Documentation: **[apmalong.github.io/weather-data-platform](https://apmalong.github.io/weather-data-platform/)**.
 
 ## Who this is for
 
@@ -79,7 +80,9 @@ To run it on a schedule instead, see [Orchestration](#orchestration-optional).
 
 ## Documentation
 
-[docs/](docs/README.md) is organised with [Diátaxis](https://diataxis.fr):
+[docs/](docs/README.md) is organised with [Diátaxis](https://diataxis.fr) and published as a website at
+[apmalong.github.io/weather-data-platform](https://apmalong.github.io/weather-data-platform/) on every push
+(MkDocs Material; the build fails on a broken link):
 
 | Kind | For | Start with |
 |---|---|---|

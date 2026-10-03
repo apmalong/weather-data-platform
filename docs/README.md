@@ -1,7 +1,7 @@
 # Documentation
 
 Organised with [Diátaxis](https://diataxis.fr): four kinds of page, each answering a different need.
-The repository's own [README](../README.md) is the entry point: setup, architecture, design decisions
+The repository's own [README](https://github.com/apmalong/weather-data-platform#readme) is the entry point: setup, architecture, design decisions
 and tradeoffs.
 
 | If you want to… | Read |
