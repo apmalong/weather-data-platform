@@ -149,7 +149,7 @@ unit_tests:
         rows:
           - {element: SNWD, unit: mm, is_core: true, absent_means_zero: true, persistent: true, fed_by: SNOW}
           - {element: SNOW, unit: mm, is_core: true, absent_means_zero: false, persistent: false, fed_by: null}
-      - input: ref('int_station_elements')
+      - input: ref('int_station_elements__reported')
         rows:
           - {station_id: CAN01108395, element: SNWD, first_year: 2013, last_year: 2026}
           - {station_id: CAN01108395, element: SNOW, first_year: 2013, last_year: 2026}

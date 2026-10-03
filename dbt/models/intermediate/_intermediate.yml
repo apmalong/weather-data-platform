@@ -30,7 +30,7 @@ models:
       - {name: display_unit, description: "{{ doc('display_unit') }}"}
       - {name: policy_hash, description: "{{ doc('policy_hash') }}"}
 
-  - name: int_station_elements
+  - name: int_station_elements__reported
     description: The years each selected station reports each element, from the inventory.
     data_tests:
       - unique_combination: {arguments: {columns: [station_id, element]}}

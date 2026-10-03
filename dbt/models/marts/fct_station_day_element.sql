@@ -29,7 +29,7 @@ with bounds as (
         se.station_id is not null as is_expected
     from spine sp
     cross join {{ ref('int_elements__in_scope') }} e
-    left join {{ ref('int_station_elements') }} se
+    left join {{ ref('int_station_elements__reported') }} se
         on se.station_id = sp.station_id and se.element = e.element
        and year(sp.obs_date) between se.first_year and se.last_year
 )
