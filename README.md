@@ -52,7 +52,7 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | Command | What it does |
 |---|---|
 | `wx ingest` | Downloads NOAA's reference files, resolves each configured city to a station from the metadata, downloads and loads its observations (skipping unchanged files) |
-| `wx transform` | `dbt build`: 20 models across staging, intermediate and marts, plus 69 data tests and 2 unit tests. `--full-refresh` rebuilds from raw |
+| `wx transform` | `dbt build`: 19 models across staging, intermediate and marts, plus 69 data tests and 2 unit tests. `--full-refresh` rebuilds from raw |
 | `wx narrate` | Daily narratives for the last 14 days, in batches, validated against the data; cached, so reruns only do new or revised days |
 | `wx eval` | Scores a narrative prompt and model on hard cases (`evals/cases.yml`): `--prompt prompts/narrative_v1.md` |
 | `wx health` | One report: runs, checks, dbt tests, data quality, NOAA's revisions, narratives, evaluation. `--strict` exits 1 on errors |
