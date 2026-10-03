@@ -6,5 +6,5 @@ select
     i.first_year,
     i.last_year
 from {{ ref('int_stations__selected') }} s
-join {{ ref('stg_ghcnd__inventory') }} i using (station_id)
-join {{ ref('int_elements__in_scope') }} e using (element)
+join {{ ref('stg_ghcnd__inventory') }} i on i.station_id = s.station_id
+join {{ ref('int_elements__in_scope') }} e on e.element = i.element

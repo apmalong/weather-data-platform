@@ -28,14 +28,14 @@ select 'quarantined' as issue_type, 'info' as severity, o.station_id, s.city, o.
        end as reason,
        'marts.fct_observations' as found_in, o.dbt_loaded_at as detected_at
 from marts.fct_observations o   -- a hook can't use ref(); the schema is fixed by generate_schema_name
-left join stations s using (station_id)
+left join stations s on s.station_id = o.station_id
 where o.quality_status in ('qc_failed', 'out_of_bounds', 'unparseable')
 
 union all
 select 'rejected_row', 'warn', r.station_id, s.city, null, null, r.line, r.reason,
        'raw.rejected_rows', r.rejected_at
 from raw.rejected_rows r
-left join stations s using (station_id)
+left join stations s on s.station_id = r.station_id
 
 union all
 select 'revised_by_noaa', 'info', c.station_id, s.city, try_strptime(c.obs_date, '%Y%m%d')::date, c.element,
@@ -45,7 +45,7 @@ select 'revised_by_noaa', 'info', c.station_id, s.city, try_strptime(c.obs_date,
             else 'flags revised by NOAA: ' || c.old_flags || ' -> ' || c.new_flags end,
        'raw.observation_changes', c.changed_at
 from raw.observation_changes c
-left join stations s using (station_id)
+left join stations s on s.station_id = c.station_id
 where c.change in ('update', 'delete')
 
 union all

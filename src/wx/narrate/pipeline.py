@@ -41,7 +41,9 @@ alter table narratives.validation add column if not exists attempt integer defau
 create or replace view narratives.latest as
     select n.*, v.passed, v.failed_checks, v.warnings
     from narratives.daily n
-    left join narratives.validation v using (station_id, obs_date, input_hash, model, prompt_version, attempt)
+    left join narratives.validation v
+        on v.station_id = n.station_id and v.obs_date = n.obs_date and v.input_hash = n.input_hash
+       and v.model = n.model and v.prompt_version = n.prompt_version and v.attempt = n.attempt
     qualify row_number() over (partition by n.station_id, n.obs_date order by n.generated_at desc) = 1;
 """
 

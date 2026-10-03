@@ -32,35 +32,36 @@ with assessed as (
     union
     select t.station_id, t.obs_date, t.element
     from {{ this }} t
-    join {{ ref('int_elements__in_scope') }} e using (element)
+    join {{ ref('int_elements__in_scope') }} e on e.element = t.element
     where t.policy_hash is distinct from e.policy_hash
     union
     select a.station_id, a.obs_date, a.element
     from assessed a
-    semi join (
+    join (
         select distinct station_id, element from assessed
         except
         select distinct station_id, element from {{ this }}
-    ) new_pairs using (station_id, element)
+    ) new_pairs on new_pairs.station_id = a.station_id and new_pairs.element = a.element
 )
 
 , removed as (
     select c.station_id, try_strptime(c.obs_date, '%Y%m%d')::date as obs_date, c.element,
            max(c.changed_at) as changed_at, arg_max(c.run_id, c.changed_at) as run_id
     from {{ source('raw', 'observation_changes') }} c
-    join {{ ref('int_stations__selected') }} s using (station_id)
+    join {{ ref('int_stations__selected') }} s on s.station_id = c.station_id
     where c.change = 'delete' and c.changed_at > (select changed_after from watermark)
-    group by all
+    group by c.station_id, c.obs_date, c.element
 )
 {% endif %}
 
 select
-    station_id, obs_date, element, raw_value, value, unit, mflag, qflag, sflag, is_trace,
-    quality_status, quality_status in ('valid', 'trace') as is_usable, policy_hash,
-    raw_changed_at, raw_run_id, false as is_deleted, current_timestamp::timestamp as dbt_loaded_at
-from assessed
+    a.station_id, a.obs_date, a.element, a.raw_value, a.value, a.unit, a.mflag, a.qflag, a.sflag, a.is_trace,
+    a.quality_status, a.quality_status in ('valid', 'trace') as is_usable, a.policy_hash,
+    a.raw_changed_at, a.raw_run_id, false as is_deleted, current_timestamp::timestamp as dbt_loaded_at
+from assessed a
 {% if is_incremental() %}
-semi join changed_keys using (station_id, obs_date, element)
+-- changed_keys is a union, so its keys are distinct and this join can't duplicate rows
+join changed_keys k on k.station_id = a.station_id and k.obs_date = a.obs_date and k.element = a.element
 
 union all
 
@@ -69,5 +70,6 @@ select
     'removed_at_source', false, null,
     r.changed_at, r.run_id, true, current_timestamp::timestamp
 from removed r
-anti join assessed a using (station_id, obs_date, element)
+left join assessed a on a.station_id = r.station_id and a.obs_date = r.obs_date and a.element = r.element
+where a.station_id is null   -- removed from NOAA's file and not re-published
 {% endif %}

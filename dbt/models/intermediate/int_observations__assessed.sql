@@ -28,5 +28,5 @@ select
     o.raw_changed_at,
     o.raw_run_id
 from {{ ref('stg_ghcnd__observations') }} o
-join {{ ref('int_stations__selected') }} s using (station_id)
+join {{ ref('int_stations__selected') }} s on s.station_id = o.station_id
 join {{ ref('int_elements__in_scope') }} e on e.element = o.element

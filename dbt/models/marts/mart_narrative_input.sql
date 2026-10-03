@@ -21,7 +21,7 @@ with facts as (
             order by e.is_core desc, d.element
         ) as facts
     from {{ ref('fct_station_day_element') }} d
-    join {{ ref('dim_element') }} e using (element)
+    join {{ ref('dim_element') }} e on e.element = d.element
     where d.status <> 'not_expected'
     group by all
 )
@@ -35,4 +35,4 @@ select
     to_json(f.facts) as facts,
     md5(to_json(f.facts)::varchar) as input_hash
 from facts f
-join {{ ref('dim_station') }} s using (station_id)
+join {{ ref('dim_station') }} s on s.station_id = f.station_id

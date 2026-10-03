@@ -144,20 +144,23 @@ def load_observations(conn, run_id: str, station_id: str, path: Path, sha256: st
                case when i.station_id is not null then concat_ws('|', coalesce(i.mflag, ''), coalesce(i.qflag, ''),
                    coalesce(i.sflag, ''), coalesce(i.obs_time, '')) end as new_flags
         from _incoming i
-        full join (select * from raw.observations where station_id = ?) o using (station_id, obs_date, element)
+        full join (select * from raw.observations where station_id = ?) o
+            on o.station_id = i.station_id and o.obs_date = i.obs_date and o.element = i.element
         where o._row_hash is distinct from i._row_hash""", [station_id])
     conn.execute("insert into raw.observation_changes select ?, *, ? from _changes", [run_id, now])
-    conn.execute("""delete from raw.observations o using _changes c
-                    where o.station_id = c.station_id and o.obs_date = c.obs_date and o.element = c.element
-                      and c.change in ('update', 'delete')""")
+    conn.execute("""delete from raw.observations o
+                    where exists (select 1 from _changes c
+                                  where c.station_id = o.station_id and c.obs_date = o.obs_date
+                                    and c.element = o.element and c.change in ('update', 'delete'))""")
     conn.execute("""
         insert into raw.observations
         select i.station_id, i.obs_date, i.element, i.value, i.mflag, i.qflag, i.sflag, i.obs_time, i._row_hash,
                ?, coalesce(f.first_loaded, ?), ?, ?
-        from _incoming i join _changes c using (station_id, obs_date, element)
+        from _incoming i
+        join _changes c on c.station_id = i.station_id and c.obs_date = i.obs_date and c.element = i.element
         left join (select station_id, obs_date, element, min(changed_at) as first_loaded
                    from raw.observation_changes where change = 'insert' group by all) f
-               using (station_id, obs_date, element)
+               on f.station_id = i.station_id and f.obs_date = i.obs_date and f.element = i.element
         where c.change in ('insert', 'update')""", [path.name, now, now, run_id])
     counts = dict(conn.execute("select change, count(*) from _changes group by 1").fetchall())
     result = {"read": read, "rejected": rejected, "inserted": counts.get("insert", 0),

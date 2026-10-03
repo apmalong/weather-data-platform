@@ -15,5 +15,5 @@ select
     min(try_strptime(c.obs_date, '%Y%m%d')::date) as earliest_date_touched,
     max(try_strptime(c.obs_date, '%Y%m%d')::date) as latest_date_touched
 from {{ source('raw', 'observation_changes') }} c
-left join {{ ref('int_stations__selected') }} s using (station_id)
+left join {{ ref('int_stations__selected') }} s on s.station_id = c.station_id
 group by c.run_id, c.station_id, s.city

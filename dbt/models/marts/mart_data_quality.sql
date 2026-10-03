@@ -33,6 +33,6 @@ select
         else 'fresh'
     end as freshness
 from by_status b
-join {{ ref('int_stations__selected') }} s using (station_id)
-join {{ ref('int_elements__in_scope') }} e using (element)
+join {{ ref('int_stations__selected') }} s on s.station_id = b.station_id
+join {{ ref('int_elements__in_scope') }} e on e.element = b.element
 cross join {{ ref('stg_config__run_scope') }} w

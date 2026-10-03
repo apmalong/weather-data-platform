@@ -20,5 +20,5 @@ select
     string_agg(d.element, ', ' order by d.element) filter (where d.status in ('qc_failed', 'out_of_bounds', 'unparseable'))
         as quarantined_elements
 from {{ ref('fct_station_day_element') }} d
-join {{ ref('int_stations__selected') }} s using (station_id)
+join {{ ref('int_stations__selected') }} s on s.station_id = d.station_id
 group by all

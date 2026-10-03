@@ -145,7 +145,7 @@ def _quality(conn, r: Report) -> None:
                max(last_usable_date) filter (where freshness <> 'not_applicable') as latest,
                case when bool_or(freshness = 'stale') then 'stale' when bool_or(freshness = 'lagging') then 'lagging'
                     else 'fresh' end as freshness
-        from marts.mart_data_quality q join marts.dim_element e using (element)
+        from marts.mart_data_quality q join marts.dim_element e on e.element = q.element
         group by city order by city""").fetchall()
     r.table(["city", "worst completeness", "element", "missing days", "trace days", "quarantined", "latest",
              "freshness"], rows)
@@ -178,7 +178,7 @@ def _narratives(conn, r: Report) -> None:
     r.lines.append(f"Current narratives: {stats[0]} station-days from {stats[2]} to {stats[3]} ({stats[4]}), "
                    f"{stats[1]} passed validation.")
     failed = conn.execute("""select s.city, n.obs_date, n.failed_checks, left(n.narrative, 120)
-                             from narratives.latest n join marts.dim_station s using (station_id)
+                             from narratives.latest n join marts.dim_station s on s.station_id = n.station_id
                              where not n.passed order by n.obs_date desc limit 10""").fetchall()
     if failed:
         r.lines.append("")

@@ -3,7 +3,7 @@
 with reported as (
     select distinct i.element
     from {{ ref('stg_ghcnd__inventory') }} i
-    join {{ ref('int_stations__selected') }} s using (station_id)
+    join {{ ref('int_stations__selected') }} s on s.station_id = i.station_id
     cross join {{ ref('stg_config__run_scope') }} w
     where i.first_year <= year(w.end_date) and i.last_year >= year(w.start_date)
 )

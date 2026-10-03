@@ -62,7 +62,7 @@ def collect(cfg: Config) -> dict:
                            count(*) filter (where reason like 'reports %') as rejected_coverage,
                            count(*) filter (where reason like 'ranked lower%') as ranked_lower
                     from ops.station_resolution
-                    where run_id = (select max(run_id) from ops.station_resolution) group by city) r using (city)
+                    where run_id = (select max(run_id) from ops.station_resolution) group by city) r on r.city = s.city
                 order by s.city"""),
             "elements": _rows(conn, """select element, label, display_unit, unit, is_core, absent_means_zero,
                                               lower_bound, upper_bound from marts.dim_element
