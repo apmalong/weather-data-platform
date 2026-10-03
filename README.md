@@ -409,6 +409,11 @@ so, and the task retries.
   covers Canada only, lacks NOAA's quality checks and flags, and the station metadata and inventory
   that drive selection would have to come from somewhere else. A middle path is to keep NOAA and fill
   gaps from Environment Canada, recording the source of each value.
+- **More cities, in Canada and the US:** the selection rules already resolve 29 of the 35 cities
+  tested, and the rest need one config field, so adding them is configuration. Three things need work
+  first: element rules are global, but `absent_means_zero` describes Environment Canada's reporting
+  and US stations need their own rules (per network or country); each city adds about 365 narratives
+  a year to the free-tier quota; and the report's city picker and charts were designed for five.
 - **Data checks:** turn the one-off Environment Canada comparison into a scheduled check on a sample
   of station-days. That would also have caught the old files' gust units automatically. Surface
   NOAA's change history (`status.txt`) in the health report.
