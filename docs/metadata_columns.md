@@ -148,3 +148,15 @@ The `ops` schema records what every stage did. `wx health` and the report read i
 dbt stores the failing rows of each data test in a table here, named after the test (for example
 `audit.assert_tmax_not_below_tmin`). An empty table means the test passed. Each build replaces these
 tables, so they show the latest build only.
+
+`audit.all_failures` is a view over all of them, rebuilt by an `on-run-end` hook after every build:
+
+| Column | Meaning |
+|---|---|
+| `test_name` | The dbt test. |
+| `tested` | The model or source it tests. |
+| `severity` | `error` (fails the build) or `warn` (reported only). |
+| `failing_row` | The failing row as JSON. Each test's table has its own columns, so JSON is the common shape. |
+
+It covers only the tests the project defines now, so a renamed or removed test's leftover table
+can't show stale failures. Empty means every test passed.

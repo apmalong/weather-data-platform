@@ -31,3 +31,4 @@ tests:
 on-run-end:
   - "{{ record_run_results(results) }}"
   - "{{ persist_source_docs() }}"
+  - "{{ audit_failures_view() }}"        # audit.all_failures: every failing test row in one view

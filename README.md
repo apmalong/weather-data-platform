@@ -353,6 +353,11 @@ Every stage writes to the `ops` schema: `runs`, `downloads`, `loads`, `checks`,
 report with an overall status, the reasons for it, and per-stage detail. See
 [docs/health_report.md](docs/health_report.md) for an example.
 
+Failing data-test rows land in the `audit` schema, one table per test (dbt's `store_failures`), and
+`audit.all_failures` puts them in one place: one row per failure, with the test, the model it tests,
+its severity and the failing row as JSON. `select * from audit.all_failures` is empty when everything
+passes.
+
 `wx report` puts it all on one page for people: an overview with the health status; the weather per
 city (temperature, precipitation, snowfall and peak gusts with their direction, over 30 days to the
 whole window, gaps shown as gaps, or as a table); completeness per city and element and what NOAA changed; every narrative beside the
