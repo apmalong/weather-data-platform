@@ -23,6 +23,8 @@ models:
       - {name: scale, description: "{{ doc('scale') }}"}
       - {name: is_core, description: "{{ doc('is_core') }}"}
       - {name: absent_means_zero, description: "{{ doc('absent_means_zero') }}"}
+      - {name: persistent, description: "{{ doc('persistent') }}"}
+      - {name: fed_by, description: The element that adds to a persistent one (SNOW for SNWD).}
       - {name: lower_bound, description: "{{ doc('bounds') }}"}
       - {name: upper_bound, description: "{{ doc('bounds') }}"}
       - {name: display_unit, description: "{{ doc('display_unit') }}"}

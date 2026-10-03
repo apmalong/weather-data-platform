@@ -115,6 +115,8 @@ models:
       - {name: scale, description: "{{ doc('scale') }}"}
       - {name: is_core, description: "{{ doc('is_core') }}"}
       - {name: absent_means_zero, description: "{{ doc('absent_means_zero') }}"}
+      - {name: persistent, description: "{{ doc('persistent') }}"}
+      - {name: fed_by, description: The element that adds to a persistent one (SNOW for SNWD).}
       - {name: lower_bound, description: "{{ doc('bounds') }}"}
       - {name: upper_bound, description: "{{ doc('bounds') }}"}
       - {name: display_unit, description: "{{ doc('display_unit') }}"}
@@ -129,3 +131,57 @@ models:
         description: "{{ doc('input_hash') }}"
         data_tests: [not_null]
       - {name: facts, description: "{{ doc('facts') }}"}
+
+unit_tests:
+  # Vancouver, February 2025, checked against Environment Canada's record: NOAA's file has no snow
+  # depth on the 2nd (4 cm per Environment Canada, with 5.8 cm of new snow) or the 6th (Environment
+  # Canada has no reading either). Neither may read as "no snow on the ground".
+  - name: snow_depth_absent_during_snow_is_missing
+    model: fct_station_day_element
+    given:
+      - input: ref('stg_config__run_scope')
+        rows:
+          - {start_date: 2025-02-01, end_date: 2025-02-08}
+      - input: ref('int_stations__selected')
+        rows:
+          - {station_id: CAN01108395}
+      - input: ref('int_elements__in_scope')
+        rows:
+          - {element: SNWD, unit: mm, is_core: true, absent_means_zero: true, persistent: true, fed_by: SNOW}
+          - {element: SNOW, unit: mm, is_core: true, absent_means_zero: false, persistent: false, fed_by: null}
+      - input: ref('int_station_elements')
+        rows:
+          - {station_id: CAN01108395, element: SNWD, first_year: 2013, last_year: 2026}
+          - {station_id: CAN01108395, element: SNOW, first_year: 2013, last_year: 2026}
+      - input: ref('fct_observations')
+        rows:
+          - {station_id: CAN01108395, obs_date: 2025-02-01, element: SNOW, value: 0, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-02, element: SNOW, value: 58, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-03, element: SNOW, value: 55, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-04, element: SNOW, value: 50, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-05, element: SNOW, value: 0, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-06, element: SNOW, value: 0, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-07, element: SNOW, value: 0, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-08, element: SNOW, value: 0, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-03, element: SNWD, value: 10, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-04, element: SNWD, value: 70, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-05, element: SNWD, value: 30, quality_status: valid, is_usable: true, is_deleted: false}
+          - {station_id: CAN01108395, obs_date: 2025-02-07, element: SNWD, value: 20, quality_status: valid, is_usable: true, is_deleted: false}
+    expect:
+      rows:
+        - {obs_date: 2025-02-01, element: SNOW, status: valid, value: 0}
+        - {obs_date: 2025-02-02, element: SNOW, status: valid, value: 58}
+        - {obs_date: 2025-02-03, element: SNOW, status: valid, value: 55}
+        - {obs_date: 2025-02-04, element: SNOW, status: valid, value: 50}
+        - {obs_date: 2025-02-05, element: SNOW, status: valid, value: 0}
+        - {obs_date: 2025-02-06, element: SNOW, status: valid, value: 0}
+        - {obs_date: 2025-02-07, element: SNOW, status: valid, value: 0}
+        - {obs_date: 2025-02-08, element: SNOW, status: valid, value: 0}
+        - {obs_date: 2025-02-01, element: SNWD, status: not_reported, value: 0}      # no snow around
+        - {obs_date: 2025-02-02, element: SNWD, status: missing, value: null}        # new snow that day
+        - {obs_date: 2025-02-03, element: SNWD, status: valid, value: 10}
+        - {obs_date: 2025-02-04, element: SNWD, status: valid, value: 70}
+        - {obs_date: 2025-02-05, element: SNWD, status: valid, value: 30}
+        - {obs_date: 2025-02-06, element: SNWD, status: missing, value: null}        # snow on both sides
+        - {obs_date: 2025-02-07, element: SNWD, status: valid, value: 20}
+        - {obs_date: 2025-02-08, element: SNWD, status: not_reported, value: 0}      # melted: nothing after

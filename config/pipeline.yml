@@ -49,6 +49,12 @@ elements:
   # about 31 km/h and snow depth when there is snow, so absence means "nothing to report", not
   # missing data. Everything else defaults to missing.
   absent_means_zero: [WDFG, WSFG, SNWD]
+  # Quantities that carry over from day to day (snow on the ground). For these, an absent day is
+  # missing, not zero, when snow is evidently there: the readings before and after it are both
+  # above zero, or new snow fell that day (fed_by). Found by checking Vancouver against
+  # Environment Canada's own record: 4 cm on the ground on 2 February 2025 had no row in NOAA's file.
+  persistent:
+    SNWD: {fed_by: SNOW}
   # Physical bounds in real units (after scaling), checked in dbt. Values outside are quarantined.
   bounds:
     TMAX: [-60, 50]

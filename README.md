@@ -52,7 +52,7 @@ so every stage runs end to end; with a key, the same command uses Gemini.
 | Command | What it does |
 |---|---|
 | `wx ingest` | Downloads NOAA's reference files, resolves each configured city to a station from the metadata, downloads and loads its observations (skipping unchanged files) |
-| `wx transform` | `dbt build`: 20 models across staging, intermediate and marts, plus 69 data tests. `--full-refresh` rebuilds from raw |
+| `wx transform` | `dbt build`: 20 models across staging, intermediate and marts, plus 69 data tests and a unit test. `--full-refresh` rebuilds from raw |
 | `wx narrate` | Daily narratives for the last 14 days, in batches, validated against the data; cached, so reruns only do new or revised days |
 | `wx eval` | Scores a narrative prompt and model on hard cases (`evals/cases.yml`): `--prompt prompts/narrative_v1.md` |
 | `wx health` | One report: runs, checks, dbt tests, data quality, NOAA's revisions, narratives, evaluation. `--strict` exits 1 on errors |
@@ -209,7 +209,7 @@ What's wrong with the raw data, what the pipeline does about it, and where:
 | Values in tenths (°C ×10, mm ×10) | Scale from the readme's element definitions, at fixed precision (`decimal(12,1)`) so there's no float noise | `int_observations__assessed` |
 | NOAA quality flags; physically impossible values | Mark them `qc_failed` or `out_of_bounds` (bounds in config); keep the raw value but exclude it from usable values | `int_observations__assessed` |
 | Trace amounts stored as 0 | Keep 0 but give them the status `trace`, so they never read as "none" | `int_observations__assessed` |
-| Days with no row at all | Build a full station × day × element grid, so every absence is a row: `missing`, `not_reported` (counted as 0 for gusts and snow depth, per config) or `not_expected` | `fct_station_day_element` |
+| Days with no row at all | Build a full station × day × element grid, so every absence is a row: `missing`, `not_reported` (counted as 0 for gusts and snow depth, per config, except snow depth while snow is evidently on the ground) or `not_expected` | `fct_station_day_element` |
 | Rows NOAA revises or removes | Updated in place and logged; removed rows are marked `removed_at_source` instead of deleted | `fct_observations` |
 | Metric units that are awkward to read (m/s, mm of snow) | Convert to km/h and cm only for display, from config | marts and report |
 
@@ -241,6 +241,17 @@ the completeness report wrong and the narratives say false things ("no wind data
 `absent_means_zero: [WDFG, WSFG, SNWD]` makes them `not_reported` ("nothing to report") instead of
 `missing`. The freshness test found this the hard way: snow depth looked five months stale in
 September. Freshness is now judged only on elements that are reported every day.
+
+**…but snow on the ground doesn't vanish between readings.** Checking Vancouver against Environment
+Canada's own daily record (the `climate-daily` collection at `api.weather.gc.ca`) found 2 February
+2025: 4 cm on the ground and 5.8 cm of new snow per Environment Canada, but no snow-depth row in
+NOAA's file, so the pipeline said "0 cm on the ground". Snow depth is now `persistent` in config:
+an absent day between two non-zero readings, or on a day with new snowfall, is `missing`, not zero.
+That changed 72 days across the five stations. For Toronto and Calgary I checked all 45 of theirs
+against Environment Canada: on 21 it had snow on the ground that NOAA's file lacks, on 24 it had no
+reading either, and on none did it say zero. A dbt unit test pins the February 2025 sequence.
+The same check confirmed the rest: Vancouver's 2025–26 winter had no measurable snowfall, only the
+three trace days Environment Canada reported (20 February, 10 and 15 March 2026).
 
 **Trace amounts** (`mflag T`) are stored as 0 but keep their status, so a narrative says "a trace
 of rain", never "no rain".

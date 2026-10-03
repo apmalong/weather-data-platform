@@ -82,8 +82,9 @@ element's physical bounds in config; `unparseable` the date or value didn't pars
 
 {% docs status %}
 The cell's status. Observed values carry their `quality_status`; days with no row at all are
-`missing` (the station reports this element that year but not this day), `not_reported` (absent, and
-config says absence means nothing to report: gusts below ~31 km/h, zero snow depth; value 0) or
+`missing` (the station reports this element that year but not this day, or a persistent element is
+evidently present: snow on the ground on both sides, or new snow that day), `not_reported` (absent,
+and config says absence means nothing to report: gusts below ~31 km/h, zero snow depth; value 0) or
 `not_expected` (the station doesn't report this element that year).
 {% enddocs %}
 
@@ -141,6 +142,11 @@ observation directly.
 {% docs absent_means_zero %}
 From config: an absent day means "nothing to report" (status `not_reported`, value 0), not missing
 data. Environment Canada omits gusts below ~31 km/h and zero snow depth.
+{% enddocs %}
+
+{% docs persistent %}
+From config: a quantity that carries over from day to day (snow on the ground). An absent day is
+`missing`, not zero, between two non-zero readings or when `fed_by` (new snowfall) is non-zero that day.
 {% enddocs %}
 
 {% docs bounds %}

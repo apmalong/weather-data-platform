@@ -16,6 +16,8 @@ select
     e.scale,
     e.is_core,
     coalesce(p.absent_means_zero, false) as absent_means_zero,
+    coalesce(p.persistent, false) as persistent,   -- read in fct_station_day_element only, so not in policy_hash
+    p.fed_by,
     p.lower_bound,
     p.upper_bound,
     coalesce(p.display_unit, e.unit) as display_unit,

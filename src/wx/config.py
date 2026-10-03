@@ -66,9 +66,14 @@ class Display(BaseModel):
     factor: float
 
 
+class Persistent(BaseModel):
+    fed_by: str | None = None  # the element that adds to it (SNOW for SNWD)
+
+
 class Elements(BaseModel):
     exclude: list[str] = []
     absent_means_zero: list[str] = []
+    persistent: dict[str, Persistent] = {}
     bounds: dict[str, tuple[float, float]] = {}
     display: dict[str, Display] = {}
 
