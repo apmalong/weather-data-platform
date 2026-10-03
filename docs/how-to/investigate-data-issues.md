@@ -2,7 +2,7 @@
 
 Open the warehouse read-only (stop it with Ctrl+C before running other `wx` commands):
 
-```powershell
+```bash
 uv run wx --explore
 ```
 
@@ -40,15 +40,29 @@ from marts.mart_data_quality order by completeness;
 select command, status, started_at, error from ops.runs order by started_at desc limit 10;
 ```
 
-```powershell
+```bash
 uv run wx health
 ```
 
 **5. To check a value against the original source**, compare with Environment Canada's record for the
 same station (climate ID = the NOAA ID without `CAN0`):
 
-```powershell
-curl "https://api.weather.gc.ca/collections/climate-daily/items?CLIMATE_IDENTIFIER=1108395&datetime=2025-02-01/2025-02-09&f=json"
-```
+=== "macOS"
+
+    ```bash
+    curl "https://api.weather.gc.ca/collections/climate-daily/items?CLIMATE_IDENTIFIER=1108395&datetime=2025-02-01/2025-02-09&f=json"
+    ```
+
+=== "Linux"
+
+    ```bash
+    curl "https://api.weather.gc.ca/collections/climate-daily/items?CLIMATE_IDENTIFIER=1108395&datetime=2025-02-01/2025-02-09&f=json"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    curl.exe "https://api.weather.gc.ca/collections/climate-daily/items?CLIMATE_IDENTIFIER=1108395&datetime=2025-02-01/2025-02-09&f=json"   # curl.exe: in Windows PowerShell 5.1, plain curl is a different command
+    ```
 
 What each status and column means: [metadata columns](../reference/warehouse/metadata-columns.md).

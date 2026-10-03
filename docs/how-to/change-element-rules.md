@@ -4,7 +4,7 @@ Element rules live under `elements` in `config/pipeline.yml`
 ([reference](../reference/configuration.md#elements)). After any change, run ingest first, because it
 publishes the rules dbt reads:
 
-```powershell
+```bash
 uv run wx ingest
 uv run wx transform
 ```

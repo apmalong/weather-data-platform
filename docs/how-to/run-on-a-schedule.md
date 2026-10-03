@@ -7,7 +7,7 @@ Needs Docker, and about 1.3 GB of memory while running.
 
 2. Build and start Airflow:
 
-   ```powershell
+   ```bash
    docker compose -f orchestration/docker-compose.yml up -d --build
    ```
 
@@ -19,7 +19,7 @@ Needs Docker, and about 1.3 GB of memory while running.
 
 5. Stop it when you're done:
 
-   ```powershell
+   ```bash
    docker compose -f orchestration/docker-compose.yml down
    ```
 

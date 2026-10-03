@@ -33,7 +33,8 @@ correct narratives, ready by the next morning, with data tests passing and core 
 ## Quick start
 
 You need [uv](https://docs.astral.sh/uv/getting-started/installation/) (it installs Python 3.12 for
-you) and an internet connection. No database server, no Docker, no API key required.
+you) and an internet connection. No database server, no Docker, no API key required. It runs on
+macOS, Linux and Windows; CI runs it on all three.
 
 ```bash
 git clone https://github.com/apmalong/weather-data-platform.git
@@ -43,7 +44,10 @@ cp .env.example .env         # optional: add GEMINI_API_KEY (free, no billing: a
 uv run wx run                # ingest -> dbt build (models + tests) -> narratives -> report: ~1 min (~3 with Gemini)
 ```
 
-Then open **`data/report.html`** in a browser: the weather, data quality, narratives with their
+On Windows (PowerShell), the one line that differs is `copy .env.example .env`.
+
+Then open **`data/report.html`** in a browser (`open` on macOS, `xdg-open` on Linux, `start` on
+Windows): the weather, data quality, narratives with their
 validation, prompt evaluation and pipeline operations on one page. `uv run wx health` prints the
 same health summary in the terminal.
 

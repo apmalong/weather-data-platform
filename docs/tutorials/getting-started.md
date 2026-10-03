@@ -1,12 +1,14 @@
 # Getting started
 
+Commands work on macOS, Linux and Windows; where they differ, pick your system's tab.
+
 In about fifteen minutes you'll run the whole pipeline, read its results, query the warehouse, and
 see a sixth city added by configuration alone. You need [uv](https://docs.astral.sh/uv/getting-started/installation/)
 and an internet connection; no API key, database or Docker.
 
 ## 1. Run the pipeline
 
-```powershell
+```bash
 git clone https://github.com/apmalong/weather-data-platform.git
 cd weather-data-platform
 uv sync
@@ -25,7 +27,25 @@ It takes about a minute.
 
 ## 2. Read the report
 
-Open `data/report.html` in a browser.
+Open `data/report.html` in a browser:
+
+=== "macOS"
+
+    ```bash
+    open data/report.html
+    ```
+
+=== "Linux"
+
+    ```bash
+    xdg-open data/report.html
+    ```
+
+=== "Windows"
+
+    ```powershell
+    start data\report.html
+    ```
 
 - **Overview:** the health status and the five stations. Each one won against dozens of candidates;
   the table says why the others lost.
@@ -39,7 +59,7 @@ Open `data/report.html` in a browser.
 
 ## 3. Ask the pipeline how it's doing
 
-```powershell
+```bash
 uv run wx health
 ```
 
@@ -47,7 +67,7 @@ One status (OK, WARN or ERROR), the reasons, and a section per stage.
 
 ## 4. Query the warehouse
 
-```powershell
+```bash
 uv run wx --explore
 ```
 
@@ -66,12 +86,28 @@ use them. Press Ctrl+C in the terminal to stop the UI.
 
 Try it on copies, so your setup is untouched:
 
-```powershell
-copy config\pipeline.yml $env:TEMP\pipeline-try.yml
-copy data\warehouse.duckdb $env:TEMP\wx-try.duckdb
-```
+=== "macOS"
 
-Open `$env:TEMP\pipeline-try.yml` and add a line under `cities`:
+    ```bash
+    cp config/pipeline.yml /tmp/pipeline-try.yml
+    cp data/warehouse.duckdb /tmp/wx-try.duckdb
+    ```
+
+=== "Linux"
+
+    ```bash
+    cp config/pipeline.yml /tmp/pipeline-try.yml
+    cp data/warehouse.duckdb /tmp/wx-try.duckdb
+    ```
+
+=== "Windows"
+
+    ```powershell
+    copy config\pipeline.yml $env:TEMP\pipeline-try.yml
+    copy data\warehouse.duckdb $env:TEMP\wx-try.duckdb
+    ```
+
+Open the copy, `pipeline-try.yml`, and add a line under `cities`:
 
 ```yaml
     - {city: Edmonton, province: 'AB'}
@@ -79,12 +115,32 @@ Open `$env:TEMP\pipeline-try.yml` and add a line under `cities`:
 
 Then:
 
-```powershell
-$env:WX_CONFIG = "$env:TEMP\pipeline-try.yml"; $env:WX_WAREHOUSE = "$env:TEMP\wx-try.duckdb"
-uv run wx ingest
-uv run wx transform
-Remove-Item Env:WX_CONFIG, Env:WX_WAREHOUSE
-```
+=== "macOS"
+
+    ```bash
+    export WX_CONFIG=/tmp/pipeline-try.yml WX_WAREHOUSE=/tmp/wx-try.duckdb
+    uv run wx ingest
+    uv run wx transform
+    unset WX_CONFIG WX_WAREHOUSE
+    ```
+
+=== "Linux"
+
+    ```bash
+    export WX_CONFIG=/tmp/pipeline-try.yml WX_WAREHOUSE=/tmp/wx-try.duckdb
+    uv run wx ingest
+    uv run wx transform
+    unset WX_CONFIG WX_WAREHOUSE
+    ```
+
+=== "Windows"
+
+    ```powershell
+    $env:WX_CONFIG = "$env:TEMP\pipeline-try.yml"; $env:WX_WAREHOUSE = "$env:TEMP\wx-try.duckdb"
+    uv run wx ingest
+    uv run wx transform
+    Remove-Item Env:WX_CONFIG, Env:WX_WAREHOUSE
+    ```
 
 The log shows `Edmonton -> CAN03012216 (EDMONTON INTL A)`, and Edmonton is in every mart, with no
 SQL or Python changed.
@@ -93,11 +149,29 @@ SQL or Python changed.
 
 Get a free key at https://aistudio.google.com/apikey (no billing), then:
 
-```powershell
-copy .env.example .env      # add the key after GEMINI_API_KEY=
-uv run wx narrate
-uv run wx report
-```
+=== "macOS"
+
+    ```bash
+    cp .env.example .env      # add the key after GEMINI_API_KEY=
+    uv run wx narrate
+    uv run wx report
+    ```
+
+=== "Linux"
+
+    ```bash
+    cp .env.example .env      # add the key after GEMINI_API_KEY=
+    uv run wx narrate
+    uv run wx report
+    ```
+
+=== "Windows"
+
+    ```powershell
+    copy .env.example .env      # add the key after GEMINI_API_KEY=
+    uv run wx narrate
+    uv run wx report
+    ```
 
 About 7 requests; the narratives tab now shows Gemini's text.
 

@@ -5,14 +5,28 @@ switching to it.
 
 1. Copy the current prompt to a new version and edit the copy:
 
-   ```powershell
-   copy llm\prompts\narrative_v3.md llm\prompts\narrative_v4.md
-   ```
+   === "macOS"
+
+       ```bash
+       cp llm/prompts/narrative_v3.md llm/prompts/narrative_v4.md
+       ```
+
+   === "Linux"
+
+       ```bash
+       cp llm/prompts/narrative_v3.md llm/prompts/narrative_v4.md
+       ```
+
+   === "Windows"
+
+       ```powershell
+       copy llm\prompts\narrative_v3.md llm\prompts\narrative_v4.md
+       ```
 
 2. Evaluate it on the 11 hard cases in `llm/evals/cases.yml` (needs `GEMINI_API_KEY`; about two
    requests):
 
-   ```powershell
+   ```bash
    uv run wx eval --prompt llm/prompts/narrative_v4.md
    ```
 
@@ -28,7 +42,7 @@ switching to it.
 
 4. Regenerate:
 
-   ```powershell
+   ```bash
    uv run wx narrate
    ```
 

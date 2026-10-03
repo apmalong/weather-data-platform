@@ -13,7 +13,7 @@ Adding a city is configuration only: no SQL or Python changes.
 
 2. Run the pipeline:
 
-   ```powershell
+   ```bash
    uv run wx run
    ```
 
@@ -43,13 +43,35 @@ A pinned station must exist in NOAA's metadata and report TMAX, TMIN and PRCP ac
 
 Use a copy of the config and the warehouse, so the real ones are untouched:
 
-```powershell
-copy config\pipeline.yml $env:TEMP\pipeline-try.yml        # then add the city to the copy
-copy data\warehouse.duckdb $env:TEMP\wx-try.duckdb
-$env:WX_CONFIG = "$env:TEMP\pipeline-try.yml"; $env:WX_WAREHOUSE = "$env:TEMP\wx-try.duckdb"
-uv run wx ingest; uv run wx transform
-Remove-Item Env:WX_CONFIG, Env:WX_WAREHOUSE
-```
+=== "macOS"
+
+    ```bash
+    cp config/pipeline.yml /tmp/pipeline-try.yml        # then add the city to the copy
+    cp data/warehouse.duckdb /tmp/wx-try.duckdb
+    export WX_CONFIG=/tmp/pipeline-try.yml WX_WAREHOUSE=/tmp/wx-try.duckdb
+    uv run wx ingest; uv run wx transform
+    unset WX_CONFIG WX_WAREHOUSE
+    ```
+
+=== "Linux"
+
+    ```bash
+    cp config/pipeline.yml /tmp/pipeline-try.yml        # then add the city to the copy
+    cp data/warehouse.duckdb /tmp/wx-try.duckdb
+    export WX_CONFIG=/tmp/pipeline-try.yml WX_WAREHOUSE=/tmp/wx-try.duckdb
+    uv run wx ingest; uv run wx transform
+    unset WX_CONFIG WX_WAREHOUSE
+    ```
+
+=== "Windows"
+
+    ```powershell
+    copy config\pipeline.yml $env:TEMP\pipeline-try.yml        # then add the city to the copy
+    copy data\warehouse.duckdb $env:TEMP\wx-try.duckdb
+    $env:WX_CONFIG = "$env:TEMP\pipeline-try.yml"; $env:WX_WAREHOUSE = "$env:TEMP\wx-try.duckdb"
+    uv run wx ingest; uv run wx transform
+    Remove-Item Env:WX_CONFIG, Env:WX_WAREHOUSE
+    ```
 
 Before adding US cities, read the README's "With more time": some element rules describe Environment
 Canada's reporting and would need their own US equivalents.

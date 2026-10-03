@@ -2,7 +2,7 @@
 
 These are what CI runs on every push. Run them before committing:
 
-```powershell
+```bash
 uv run pytest                                   # 66 Python tests (app/tests)
 uv run black --check app orchestration          # Python formatting
 uv run ruff check .                             # Python lint
@@ -12,7 +12,7 @@ uv run wx transform                             # dbt build: 19 models, 69 data 
 
 To fix formatting automatically:
 
-```powershell
+```bash
 uv run black app orchestration
 uv run ruff check . --fix
 uv run sqlfluff fix dbt/models dbt/tests
@@ -24,7 +24,7 @@ inside a `{% if %}` that's off when it renders the model.
 The docs build separately, as a website (`.github/workflows/docs.yml`). Preview it, or check it the way
 CI does (it fails on a broken link or anchor):
 
-```powershell
+```bash
 uv run --group docs mkdocs serve             # http://127.0.0.1:8000, reloads as you edit
 uv run --group docs mkdocs build --strict
 ```

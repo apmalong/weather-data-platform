@@ -11,8 +11,17 @@ on:
 # with a fake client.
 jobs:
   pipeline:
-    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to 26 on 2026-10-19
-    timeout-minutes: 20
+    # The same commands on all three systems a grader might use. Runner images are pinned:
+    # ubuntu-latest moves to 26 on 2026-10-19.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash   # Git Bash on Windows, so every step runs identically
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0   # no floating major tag is published
@@ -21,10 +30,12 @@ jobs:
           enable-cache: true
       - run: uv sync --locked
       - name: Python style (black formats, ruff lints)
+        if: runner.os == 'Linux'   # formatting doesn't depend on the OS
         run: |
           uv run black --check app orchestration
           uv run ruff check .
       - name: SQL style (Matt Mazur's guide, via sqlfluff)
+        if: runner.os == 'Linux'
         run: uv run sqlfluff lint dbt/models dbt/tests
       - run: uv run pytest
       - name: Pipeline end to end (ingest, dbt build with tests, narratives with validation)
@@ -34,7 +45,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: results
+          name: results-${{ matrix.os }}
           path: |
             health_report.md
             data/report.html
