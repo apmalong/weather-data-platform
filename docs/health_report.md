@@ -6,21 +6,21 @@
 
 | stage | status | started (UTC) | seconds | error |
 |---|---|---|---|---|
-| ingest | success | 2026-10-02 18:16:21 | 13.0 |  |
-| transform | success | 2026-10-02 18:28:51 | 5.0 |  |
-| narrate | success | 2026-10-02 18:47:07 | 1.0 |  |
+| narrate | success | 2026-10-02 22:45:33 | 0.0 |  |
+| ingest | success | 2026-10-03 01:23:32 | 15.0 |  |
+| transform | success | 2026-10-03 01:23:52 | 13.0 |  |
 
-## Ingest (20261002T181621-c0f10e)
+## Ingest (20261003T012332-1c204e)
 
 11 files downloaded, 0 changed since the last run, 0 failed, 48.8 MB.
 
 | city | station | candidates considered | why it won |
 |---|---|---|---|
-| Vancouver | CAN01108395 VANCOUVER INTL A | 43 | selected |
-| Montreal | CAN07025251 MONTREAL INTL A | 16 | selected |
-| Calgary | CAN03031092 CALGARY INTL A | 39 | selected |
-| Toronto | CAN06158731 TORONTO INTL A | 91 | selected |
-| Ottawa | CAN06106001 OTTAWA INTL A | 25 | selected |
+| Calgary | CAN03031092 CALGARY INTL A | 39 | selected: the airport's own station |
+| Toronto | CAN06158731 TORONTO INTL A | 93 | selected: the airport's own station |
+| Vancouver | CAN01108395 VANCOUVER INTL A | 43 | selected: the airport's own station |
+| Montreal | CAN07025251 MONTREAL INTL A | 19 | selected: the airport's own station |
+| Ottawa | CAN06106001 OTTAWA INTL A | 25 | selected: the airport's own station |
 
 What NOAA changed in the most recent load that changed anything (revisions and removals of past dates count as historical):
 
@@ -32,23 +32,23 @@ What NOAA changed in the most recent load that changed anything (revisions and r
 | 20261002T172108-4f3f93 | Toronto | 33855 | 0 | 0 | 0 |
 | 20261002T172108-4f3f93 | Vancouver | 77287 | 0 | 0 | 0 |
 
-## Transform: dbt build (20261002T182851-b931f9)
+## Transform: dbt build (20261003T012352-4fa913)
 
-1 model success, 2 test pass.
+19 model success, 69 test pass, 1 unit_test pass.
 
 ## Data quality over the window
 
 | city | worst completeness | element | missing days | trace days | quarantined | latest | freshness |
 |---|---|---|---|---|---|---|---|
-| Calgary | 0.967 | TMIN | 83 | 276 | 6 | 2026-09-29 | fresh |
-| Montreal | 0.989 | TAVG | 29 | 238 | 0 | 2026-09-29 | fresh |
-| Ottawa | 0.9945 | TAVG | 14 | 219 | 0 | 2026-09-29 | fresh |
-| Toronto | 0.9986 | SNOW | 1 | 236 | 0 | 2026-09-29 | fresh |
-| Vancouver | 0.9451 | TAVG | 128 | 62 | 0 | 2026-09-29 | fresh |
+| Calgary | 0.967 | Average daily temperature | 99 | 276 | 6 | 2026-09-29 | fresh |
+| Montreal | 0.9835 | Snow depth | 41 | 238 | 0 | 2026-09-29 | fresh |
+| Ottawa | 0.9876 | Snow depth | 23 | 219 | 0 | 2026-09-29 | fresh |
+| Toronto | 0.9602 | Snow depth | 30 | 236 | 0 | 2026-09-29 | fresh |
+| Vancouver | 0.9451 | Average daily temperature | 134 | 62 | 0 | 2026-09-29 | fresh |
 
-## Narratives (20261002T184707-fadab2)
+## Narratives (20261002T224533-cb8e74)
 
-Latest run: 1 requests for 1 station-days on gemini-3.5-flash-lite, 1489+119 tokens, 1.1 s per request, 0 retries, 0 failed requests.
+Latest run: 0 requests for 0 station-days on None, 0+0 tokens, None s per request, 0 retries, 0 failed requests.
 Current narratives: 70 station-days from 2026-09-16 to 2026-09-29 (gemini gemini-3.5-flash-lite), 70 passed validation.
 
 Evaluation on evals/cases.yml, latest run per prompt version:

@@ -139,13 +139,14 @@ def _quality(conn, r: Report) -> None:
     rows = conn.execute("""
         select city,
                min(completeness) filter (where expected_days > 0) as worst_completeness,
-               arg_min(element, completeness) filter (where expected_days > 0) as worst_element,
+               arg_min(e.label, (completeness, e.label)) filter (where expected_days > 0) as worst_element,
                sum(missing_days) as missing, sum(trace_days) as trace,
                sum(qc_failed_days + out_of_bounds_days + unparseable_days) as quarantined,
                max(last_usable_date) filter (where freshness <> 'not_applicable') as latest,
                case when bool_or(freshness = 'stale') then 'stale' when bool_or(freshness = 'lagging') then 'lagging'
                     else 'fresh' end as freshness
-        from marts.mart_data_quality group by city order by city""").fetchall()
+        from marts.mart_data_quality q join marts.dim_element e using (element)
+        group by city order by city""").fetchall()
     r.table(["city", "worst completeness", "element", "missing days", "trace days", "quarantined", "latest",
              "freshness"], rows)
     for city, *_, freshness in rows:

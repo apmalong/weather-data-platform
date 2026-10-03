@@ -92,6 +92,16 @@
 <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
 <script>
 const DATA = /*__DATA__*/null;
+// Element codes (TMAX, WSFG, ...) are NOAA's; readers get the readme's labels. Built from the data,
+// so a new element needs no change here.
+const LABELS = Object.fromEntries((DATA.elements || []).map(e => [e.element, e.label]));
+const label = code => LABELS[code] || code;
+const CODES = new RegExp("\\b(" + (Object.keys(LABELS).join("|") || "(?!)") + ")\\b", "g");
+const relabel = text => text === null || text === undefined ? text : String(text).replace(CODES, c => LABELS[c]);
+// Same 8-point rule as mart_narrative_input, so the report and the narratives agree.
+const compass = deg => ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(deg / 45) % 8];
+// Environment Canada reports a peak gust only above a threshold; the smallest gust in the data shows it.
+const GUST_FLOOR = (() => { const g = (DATA.daily || []).map(r => r.wsfg).filter(v => v > 0); return g.length ? Math.floor(Math.min(...g)) : null; })();
 const { useState, useEffect, useRef, useMemo } = React;
 const html = htm.bind(React.createElement);
 
@@ -134,14 +144,14 @@ const dayLabel = d => { const [y, m, dd] = d.split("-"); return `${MONTHS[+m - 1
 
 // ---------- charts ----------
 // One x axis (days), one y axis per chart. Lines break at missing days; bars keep a 2px gap.
-function TimeChart({ rows, series, kind, unit, height = 200, hover, setHover, xLabels }) {
+function TimeChart({ rows, series, kind, unit, height = 200, hover, setHover, xLabels, band = null }) {
   const [ref, width] = useWidth();
   const empty = kind === "bar" && !rows.some(r => series.some(s => r[s.key] > 0 || r[s.trace] === "trace"));
   if (empty) return html`<p class="sub" ref=${ref} style=${{ margin: "2px 0 6px" }}>None in this period.</p>`;
   const pad = { l: 42, r: 54, t: 8, b: 22 };
   const w = width - pad.l - pad.r, h = height - pad.t - pad.b, n = rows.length;
   const values = rows.flatMap(r => series.map(s => r[s.key])).filter(v => v !== null && v !== undefined);
-  const lo = kind === "bar" ? 0 : Math.min(...values, 0), hi = Math.max(...values, kind === "bar" ? 1 : 0);
+  const lo = kind === "bar" ? 0 : Math.min(...values, 0), hi = Math.max(...values, band || 0, kind === "bar" ? 1 : 0);
   const ticks = niceTicks(lo, hi);
   const tickDigits = ticks.length > 1 && ticks[1] - ticks[0] < 1 ? 1 : 0;
   const y = v => pad.t + h - ((v - ticks[0]) / (ticks[ticks.length - 1] - ticks[0])) * h;
@@ -169,7 +179,8 @@ function TimeChart({ rows, series, kind, unit, height = 200, hover, setHover, xL
         ${ticks.map(t => html`<g key=${t}>
           <line x1=${pad.l} x2=${pad.l + w} y1=${y(t)} y2=${y(t)} stroke=${t === 0 ? "var(--axis)" : "var(--grid)"} stroke-width="1" />
           <text x=${pad.l - 6} y=${y(t) + 4} text-anchor="end" font-size="11" fill="var(--muted)">${fmt(t, tickDigits)}</text></g>`)}
-        ${xLabels.map(([i, label]) => html`<text key=${i} x=${x(i)} y=${height - 4} text-anchor="middle" font-size="11" fill="var(--muted)">${label}</text>`)}
+        ${band && html`<rect x=${pad.l} y=${y(band)} width=${Math.max(0, w)} height=${Math.max(0, y(0) - y(band))} fill="var(--wash)" />`}
+        ${xLabels.map(([i, text]) => html`<text key=${i} x=${x(i)} y=${height - 4} text-anchor="middle" font-size="11" fill="var(--muted)">${text}</text>`)}
         ${kind === "bar" ? series.map(s => rows.map((r, i) => {
             const v = r[s.key];
             if (r[s.trace] === "trace") return html`<rect key=${s.key + i} x=${x(i) - bw / 2} y=${y(0) - 2} width=${bw} height="2" fill="var(--muted)" />`;
@@ -177,6 +188,7 @@ function TimeChart({ rows, series, kind, unit, height = 200, hover, setHover, xL
             return html`<rect key=${s.key + i} x=${x(i) - bw / 2} y=${y(v)} width=${bw} height=${Math.max(1, y(0) - y(v))} rx=${bw > 6 ? 2 : 0} fill=${s.color} />`;
           }))
           : paths.map((d, k) => html`<path key=${k} d=${d} fill="none" stroke=${series[k].color} stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />`)}
+        ${band && html`<line x1=${pad.l} x2=${pad.l + w} y1=${y(band)} y2=${y(band)} stroke="var(--ink-2)" stroke-dasharray="4 3" stroke-width="1" />`}
         ${kind !== "bar" && series.map((s, k) => last[k] >= 0 && html`<text key=${"l" + k} x=${x(last[k]) + 6} y=${y(rows[last[k]][s.key]) + 4} font-size="12" fill="var(--ink-2)">${s.label}</text>`)}
         ${hr && html`<line x1=${x(hover)} x2=${x(hover)} y1=${pad.t} y2=${pad.t + h} stroke="var(--axis)" stroke-width="1" />`}
         ${hr && kind !== "bar" && series.map(s => hr[s.key] !== null && hr[s.key] !== undefined && html`<circle key=${"c" + s.key} cx=${x(hover)} cy=${y(hr[s.key])} r="4.5" fill=${s.color} stroke="var(--surface)" stroke-width="2" />`)}
@@ -185,7 +197,10 @@ function TimeChart({ rows, series, kind, unit, height = 200, hover, setHover, xL
       ${hr && html`<div class="tip" style=${{ left: Math.min(x(hover) + 12, width - 190), top: 8 }}>
         <b>${dayLabel(hr.date)}</b>
         ${series.map(s => html`<div class="row" key=${s.key}><span><span class="sw" style=${{ background: s.color }}></span> ${s.label}</span>
-          <span>${hr[s.trace] === "trace" ? "trace" : hr[s.key] === null || hr[s.key] === undefined ? (hr[s.status] || "no reading") : `${fmt(hr[s.key])} ${unit}`}</span></div>`)}
+          <span>${hr[s.trace] === "trace" ? "trace"
+            : hr[s.status] === "not_reported" ? (band ? `below ${band} ${unit}` : "nothing to report")
+            : hr[s.key] === null || hr[s.key] === undefined ? (hr[s.status] || "no reading")
+            : `${fmt(hr[s.key], s.digits)} ${unit}${s.detail ? " " + s.detail(hr) : ""}`}</span></div>`)}
       </div>`}
     </div>`;
 }
@@ -217,11 +232,11 @@ function Weather() {
       <p class="sub">${station.station_name} (${station.station_id}) · ${rows.length} days, ${rows[0]?.date} to ${rows[rows.length - 1]?.date}
         ${missingT ? html` · <b>${missingT}</b> days without a temperature reading (gaps in the lines)` : ""}</p>
       ${table ? html`<div class="card scroll"><table>
-          <thead><tr><th>Date</th><th class="num">High °C</th><th class="num">Low °C</th><th class="num">Precip. mm</th><th class="num">Snow cm</th><th class="num">On ground cm</th><th class="num">Gust km/h</th><th>Missing</th><th>Quarantined</th></tr></thead>
+          <thead><tr><th>Date</th><th class="num">High °C</th><th class="num">Low °C</th><th class="num">Precip. mm</th><th class="num">Snow cm</th><th class="num">On ground cm</th><th class="num">Peak gust km/h</th><th>Missing</th><th>Quarantined</th></tr></thead>
           <tbody>${rows.slice().reverse().map(r => html`<tr key=${r.date}><td>${r.date}</td><td class="num">${fmt(r.tmax)}</td><td class="num">${fmt(r.tmin)}</td>
             <td class="num">${r.prcp_status === "trace" ? "trace" : fmt(r.prcp)}</td><td class="num">${r.snow_status === "trace" ? "trace" : fmt(r.snow)}</td>
-            <td class="num">${fmt(r.snwd)}</td><td class="num">${r.wsfg_status === "not_reported" ? "–" : fmt(r.wsfg, 0)}</td>
-            <td>${r.missing_elements || ""}</td><td>${r.quarantined_elements || ""}</td></tr>`)}</tbody></table></div>`
+            <td class="num">${fmt(r.snwd)}</td><td class="num">${r.wsfg_status === "not_reported" ? "–" : `${fmt(r.wsfg, 0)}${r.wdfg === null || r.wdfg === undefined ? "" : " " + compass(r.wdfg)}`}</td>
+            <td>${relabel(r.missing_elements) || ""}</td><td>${relabel(r.quarantined_elements) || ""}</td></tr>`)}</tbody></table></div>`
       : html`<div class="card">
           <h3>Temperature (°C)</h3>
           <div class="legend"><span><i class="sw" style=${{ background: "var(--s-orange)" }}></i>Daily high</span><span><i class="sw" style=${{ background: "var(--s-blue)" }}></i>Daily low</span></div>
@@ -232,6 +247,10 @@ function Weather() {
           <h3 style=${{ marginTop: 14 }}>Snowfall (cm)</h3>
           <div class="legend"><span><i class="sw box" style=${{ background: "var(--s-aqua)" }}></i>New snow</span><span><i class="sw" style=${{ background: "var(--muted)", height: 2 }}></i>Trace</span></div>
           <${TimeChart} ...${charts} kind="bar" unit="cm" height=${120} series=${[{ key: "snow", label: "Snowfall", color: "var(--s-aqua)", trace: "snow_status", status: "snow_status" }]} />
+          <h3 style=${{ marginTop: 14 }}>Peak gust (km/h)</h3>
+          <div class="legend"><span><i class="sw box" style=${{ background: "var(--s-orange)" }}></i>Peak gust (hover for direction)</span>
+            ${GUST_FLOOR && html`<span><i class="sw box" style=${{ background: "var(--wash)", outline: "1px dashed var(--axis)" }}></i>Below ${GUST_FLOOR} km/h: not reported by Environment Canada</span>`}</div>
+          <${TimeChart} ...${charts} kind="bar" unit="km/h" height=${120} band=${GUST_FLOOR} series=${[{ key: "wsfg", label: "Peak gust", color: "var(--s-orange)", status: "wsfg_status", digits: 0, detail: r => r.wdfg === null || r.wdfg === undefined ? "" : `from ${compass(r.wdfg)}` }]} />
         </div>`}
     </div>`;
 }
@@ -265,7 +284,7 @@ function Overview() {
     <h2>Stations</h2>
     <div class="card scroll"><table><thead><tr><th>City</th><th>Station</th><th>Elements reported</th><th class="num">Candidates in metadata</th><th>Why the others lost</th></tr></thead>
       <tbody>${DATA.stations.map(s => html`<tr key=${s.city}><td>${s.city}, ${s.province}</td><td>${s.station_name}<div class="muted">${s.station_id} · WMO ${s.wmo_id || "–"} · ${fmt(s.elevation_m, 0)} m</div></td>
-        <td>${s.elements_reported}</td><td class="num">${s.candidates}</td>
+        <td>${relabel(s.elements_reported)}</td><td class="num">${s.candidates}</td>
         <td class="sub">${s.rejected_airport} not airports, ${s.rejected_coverage} without the required elements in the window, ${s.ranked_lower} ranked lower</td></tr>`)}</tbody></table></div>
   </div>`;
 }
@@ -280,7 +299,7 @@ function Quality() {
   return html`<div>
     <h2>Completeness over the window</h2>
     <p class="sub">Share of expected days with a usable value, or a legitimate "nothing to report": gusts below ~31 km/h and zero snow depth aren't reported by Environment Canada, so their absence isn't missing data.</p>
-    <div class="card scroll"><table class="heat"><thead><tr><th style=${{ textAlign: "left" }}>City</th>${elements.map(e => html`<th key=${e} title=${DATA.elements.find(x => x.element === e).label}>${e}</th>`)}<th>Freshness</th></tr></thead>
+    <div class="card scroll"><table class="heat"><thead><tr><th style=${{ textAlign: "left" }}>City</th>${elements.map(e => html`<th key=${e} title=${e} style=${{ whiteSpace: "normal", minWidth: 84 }}>${label(e)}</th>`)}<th>Freshness</th></tr></thead>
       <tbody>${cities.map(c => {
         const worst = DATA.quality.filter(q => q.city === c && !["not_applicable", "not_expected"].includes(q.freshness)).map(q => q.freshness);
         const fresh = worst.includes("stale") ? "stale" : worst.includes("lagging") ? "lagging" : "fresh";
@@ -291,7 +310,7 @@ function Quality() {
         html`<span key=${l}><i class="sw box" style=${{ background: `var(${v})` }}></i>${l}</span>`)}</div></div>
     <h2>Status of every expected day</h2>
     <div class="card scroll"><table><thead><tr><th>City</th><th>Element</th><th class="num">Expected</th><th class="num">Valid</th><th class="num">Trace</th><th class="num">Missing</th><th class="num">Not reported</th><th class="num">Quarantined</th><th>Latest usable</th></tr></thead>
-      <tbody>${DATA.quality.filter(q => q.expected_days > 0).map(q => html`<tr key=${q.city + q.element}><td>${q.city}</td><td>${q.element}</td><td class="num">${q.expected_days}</td><td class="num">${q.valid_days}</td>
+      <tbody>${DATA.quality.filter(q => q.expected_days > 0).map(q => html`<tr key=${q.city + q.element}><td>${q.city}</td><td>${label(q.element)}</td><td class="num">${q.expected_days}</td><td class="num">${q.valid_days}</td>
         <td class="num">${q.trace_days}</td><td class="num">${q.missing_days}</td><td class="num">${q.not_reported_days}</td><td class="num">${q.qc_failed_days + q.out_of_bounds_days}</td><td>${q.last_usable_date || "–"}</td></tr>`)}</tbody></table></div>
     <h2>What NOAA changed</h2>
     <p class="sub">Every load is compared row by row with the previous one. Revisions and removals of past dates show NOAA correcting history, which date-based incremental loading would miss.</p>
@@ -303,7 +322,7 @@ function Quality() {
 function Facts({ facts, cited }) {
   const used = new Set((cited || []).map(c => c.element));
   return html`<table class="facts"><thead><tr><th>Fact</th><th class="num">Value</th><th>Status</th><th>Cited</th></tr></thead>
-    <tbody>${(facts || []).map(f => html`<tr key=${f.element}><td>${f.label} <span class="muted">${f.element}</span></td>
+    <tbody>${(facts || []).map(f => html`<tr key=${f.element}><td>${f.label}</td>
       <td class="num">${f.value === null ? "–" : `${fmt(f.value)} ${f.unit}`}</td><td>${f.status}</td><td>${used.has(f.element) ? "✓" : ""}</td></tr>`)}</tbody></table>`;
 }
 
@@ -324,7 +343,7 @@ function Narratives() {
         <button class="link" onClick=${() => setOpen(open === id ? null : id)}>${open === id ? "Hide facts and checks" : "Facts and checks"}</button></div>
       <p>${n.narrative}</p>
       ${open === id && html`<div class="grid2"><div><h3>Facts sent to the model</h3><${Facts} facts=${n.facts} cited=${n.cited} /></div>
-        <div><h3>Validation</h3><table><tbody>${(n.checks || []).map(c => html`<tr key=${c.name}><td>${c.name}</td><td><${Badge} s=${c.passed ? "pass" : c.severity === "warn" ? "warn" : "fail"} label=${c.passed ? "pass" : c.severity} /></td><td class="sub">${c.detail}</td></tr>`)}</tbody></table></div></div>`}
+        <div><h3>Validation</h3><table><tbody>${(n.checks || []).map(c => html`<tr key=${c.name}><td>${c.name}</td><td><${Badge} s=${c.passed ? "pass" : c.severity === "warn" ? "warn" : "fail"} label=${c.passed ? "pass" : c.severity} /></td><td class="sub">${relabel(c.detail)}</td></tr>`)}</tbody></table></div></div>`}
     </div>`; })}</div>
   </div>`;
 }
@@ -342,7 +361,7 @@ function Evaluation() {
     <div class="narr">${cases.map(id => html`<div class="card" key=${id}><h3>${id}</h3><div class="eval-pair">
       ${runs.map(run => { const r = run.results.find(x => x.case_id === id); if (!r) return null; return html`<div key=${run.eval_id}>
         <div class="meta"><span>${run.prompt_version.split("@")[0]}</span><${Badge} s=${r.passed ? "pass" : "fail"} />${r.style_issues && html`<span class="muted">style: ${r.style_issues}</span>`}</div>
-        <p style=${{ margin: "6px 0" }}>${r.narrative}</p>${r.details && html`<div class="sub">${r.details}</div>`}</div>`; })}
+        <p style=${{ margin: "6px 0" }}>${r.narrative}</p>${r.details && html`<div class="sub">${relabel(r.details)}</div>`}</div>`; })}
     </div></div>`)}</div>
   </div>`;
 }

@@ -351,11 +351,12 @@ report with an overall status, the reasons for it, and per-stage detail. See
 [docs/health_report.md](docs/health_report.md) for an example.
 
 `wx report` puts it all on one page for people: an overview with the health status; the weather per
-city (temperature, precipitation and snowfall over 30 days to the whole window, gaps shown as gaps,
-or as a table); completeness per city and element and what NOAA changed; every narrative beside the
+city (temperature, precipitation, snowfall and peak gusts with their direction, over 30 days to the
+whole window, gaps shown as gaps, or as a table); completeness per city and element and what NOAA changed; every narrative beside the
 facts it was written from and its validation checks; prompt versions compared case by case; and dbt
 results and LLM calls. It's one HTML file with the data embedded (React from a CDN, no build step),
-in light and dark mode. CI publishes it and the health report as artifacts on every run.
+in light and dark mode. Elements appear by their readme labels ("Peak gust wind speed"), not NOAA's
+codes (`WSFG`), in the report and the health report. CI publishes it and the health report as artifacts on every run.
 
 ## Orchestration (optional)
 
