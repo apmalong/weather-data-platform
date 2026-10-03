@@ -158,8 +158,9 @@ function TimeChart({ rows, series, kind, unit, height = 200, hover, setHover, xL
   const x = i => pad.l + (n <= 1 ? w / 2 : (i / (n - 1)) * w);
   const bw = Math.max(1, w / Math.max(n, 1) - (n > 120 ? 0 : 2));
   const onMove = e => {
+    // currentTarget is the plot-area rect, which already starts at pad.l: measure from its own edge.
     const box = e.currentTarget.getBoundingClientRect();
-    const i = Math.round(((e.clientX - box.left - pad.l) / w) * (n - 1));
+    const i = Math.round(((e.clientX - box.left) / box.width) * (n - 1));
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
   const paths = series.map(s => {
