@@ -1,4 +1,9 @@
 -- The run's window and quality thresholds as one row, for joining.
-select w.start_date, w.end_date, q.freshness_warn_days, q.freshness_error_days, q.volume_change_warn_pct
-from {{ source('config', 'window') }} w
-cross join {{ source('config', 'quality') }} q
+select
+    run_window.start_date,
+    run_window.end_date,
+    quality.freshness_warn_days,
+    quality.freshness_error_days,
+    quality.volume_change_warn_pct
+from {{ source('config', 'window') }} as run_window
+cross join {{ source('config', 'quality') }} as quality

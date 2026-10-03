@@ -16,16 +16,26 @@ def write(tmp_path, name, rows):
 def test_first_load_inserts_everything(conn, tmp_path):
     path = write(tmp_path, "v1.csv.gz", [f"{STATION},20260101,TMAX,-52,,,C,", f"{STATION},20260101,PRCP,0,T,,C,"])
     assert load.load_observations(conn, "r1", STATION, path, "sha1") == {
-        "read": 2, "rejected": 0, "inserted": 2, "updated": 0, "deleted": 0}
+        "read": 2,
+        "rejected": 0,
+        "inserted": 2,
+        "updated": 0,
+        "deleted": 0,
+    }
 
 
 def test_revisions_backfills_and_removals_are_detected(conn, tmp_path):
-    v1 = [f"{STATION},20260101,TMAX,-52,,,C,", f"{STATION},20260101,TMIN,-120,,,C,",
-          f"{STATION},20260102,TMAX,-30,,,C,"]
+    v1 = [
+        f"{STATION},20260101,TMAX,-52,,,C,",
+        f"{STATION},20260101,TMIN,-120,,,C,",
+        f"{STATION},20260102,TMAX,-30,,,C,",
+    ]
     load.load_observations(conn, "r1", STATION, write(tmp_path, "v1.csv.gz", v1), "sha1")
-    v2 = [f"{STATION},20260101,TMAX,-55,,,C,",       # value revised
-          f"{STATION},20260102,TMAX,-30,,I,C,",      # same value, newly failed a QC check
-          f"{STATION},20251215,TMAX,12,,,C,"]        # backfilled earlier date; TMIN 20260101 removed
+    v2 = [
+        f"{STATION},20260101,TMAX,-55,,,C,",  # value revised
+        f"{STATION},20260102,TMAX,-30,,I,C,",  # same value, newly failed a QC check
+        f"{STATION},20251215,TMAX,12,,,C,",
+    ]  # backfilled earlier date; TMIN 20260101 removed
     counts = load.load_observations(conn, "r2", STATION, write(tmp_path, "v2.csv.gz", v2), "sha2")
     assert counts == {"read": 3, "rejected": 0, "inserted": 1, "updated": 2, "deleted": 1}
     changes = conn.execute("""select obs_date, element, change, old_value, new_value, old_flags, new_flags
@@ -37,8 +47,11 @@ def test_revisions_backfills_and_removals_are_detected(conn, tmp_path):
         ("20260102", "TMAX", "update", "-30", "-30", "||C|", "|I|C|"),
     ]
     current = conn.execute("select obs_date, element, value, qflag from raw.observations order by 1, 2").fetchall()
-    assert current == [("20251215", "TMAX", "12", None), ("20260101", "TMAX", "-55", None),
-                       ("20260102", "TMAX", "-30", "I")]
+    assert current == [
+        ("20251215", "TMAX", "12", None),
+        ("20260101", "TMAX", "-55", None),
+        ("20260102", "TMAX", "-30", "I"),
+    ]
 
 
 def test_unchanged_reload_changes_nothing(conn, tmp_path):
@@ -49,8 +62,11 @@ def test_unchanged_reload_changes_nothing(conn, tmp_path):
 
 
 def test_foreign_and_duplicate_rows_fail_checks(conn, tmp_path):
-    rows = [f"{STATION},20260101,TMAX,-52,,,C,", f"{STATION},20260101,TMAX,-51,,,C,",
-            "CAN07025251,20260101,TMAX,-40,,,C,"]
+    rows = [
+        f"{STATION},20260101,TMAX,-52,,,C,",
+        f"{STATION},20260101,TMAX,-51,,,C,",
+        "CAN07025251,20260101,TMAX,-40,,,C,",
+    ]
     counts = load.load_observations(conn, "r1", STATION, write(tmp_path, "v.csv.gz", rows), "sha1")
     assert counts["inserted"] == 1
     failed = dict(conn.execute("select check_name, observed from ops.checks where not passed").fetchall())
@@ -58,18 +74,23 @@ def test_foreign_and_duplicate_rows_fail_checks(conn, tmp_path):
 
 
 def test_rows_that_cant_be_loaded_are_kept_with_the_reason(conn, tmp_path):
-    rows = [f"{STATION},20260101,TMAX,-52,,,C,",
-            f"{STATION},20260102,TMAX",                     # too few columns: the reader rejects it
-            f"{STATION},20260103,TMAX,-50,,,C,,extra",      # too many columns
-            f"{STATION},20260101,TMAX,-51,,,C,",            # duplicate of the first row
-            "CAN07025251,20260101,TMAX,-40,,,C,"]           # another station's row
+    rows = [
+        f"{STATION},20260101,TMAX,-52,,,C,",
+        f"{STATION},20260102,TMAX",  # too few columns: the reader rejects it
+        f"{STATION},20260103,TMAX,-50,,,C,,extra",  # too many columns
+        f"{STATION},20260101,TMAX,-51,,,C,",  # duplicate of the first row
+        "CAN07025251,20260101,TMAX,-40,,,C,",
+    ]  # another station's row
     counts = load.load_observations(conn, "r1", STATION, write(tmp_path, "v.csv.gz", rows), "sha1")
-    assert (counts["rejected"], counts["inserted"]) == (2, 1)   # one count per line, not per missing column
+    assert (counts["rejected"], counts["inserted"]) == (2, 1)  # one count per line, not per missing column
     kept = conn.execute("""select line_number, line, reason from raw.rejected_rows
                            where run_id = 'r1' and source_file = 'v.csv.gz' order by line_number, reason""").fetchall()
     assert [(n, line) for n, line, _ in kept] == [
-        (2, f"{STATION},20260102,TMAX"), (3, f"{STATION},20260103,TMAX,-50,,,C,,extra"),
-        (None, f"{STATION},20260101,TMAX,-52,,,C,"), (None, "CAN07025251,20260101,TMAX,-40,,,C,")]
+        (2, f"{STATION},20260102,TMAX"),
+        (3, f"{STATION},20260103,TMAX,-50,,,C,,extra"),
+        (None, f"{STATION},20260101,TMAX,-52,,,C,"),
+        (None, "CAN07025251,20260101,TMAX,-40,,,C,"),
+    ]
     reasons = [r for _, _, r in kept]
     assert reasons[0].startswith("MISSING COLUMNS") and reasons[1].startswith("TOO MANY COLUMNS")
     assert reasons[2] == "duplicate of 20260101 TMAX (another row was kept)"
@@ -99,16 +120,22 @@ def test_an_interrupted_merge_changes_nothing(conn, tmp_path, monkeypatch):
     rejected rows are exactly as before, and the next run applies the file cleanly."""
     v1 = [f"{STATION},20260101,TMAX,-52,,,C,", f"{STATION},20260102,TMAX,-30,,,C,"]
     load.load_observations(conn, "r1", STATION, write(tmp_path, "v1.csv.gz", v1), "sha1")
-    snapshot = lambda: (conn.execute("select * from raw.observations order by all").fetchall(),  # noqa: E731
-                        conn.execute("select count(*) from raw.observation_changes").fetchone()[0],
-                        conn.execute("select count(*) from raw.rejected_rows").fetchone()[0])
+
+    def snapshot():
+        return (
+            conn.execute("select * from raw.observations order by all").fetchall(),
+            conn.execute("select count(*) from raw.observation_changes").fetchone()[0],
+            conn.execute("select count(*) from raw.rejected_rows").fetchone()[0],
+        )
+
     before = snapshot()
     v2 = [f"{STATION},20260101,TMAX,-55,,,C,", f"{STATION},20260103,TMAX", "CAN07025251,20260101,TMAX,1,,,C,"]
-    path = write(tmp_path, "v2.csv.gz", v2)        # a revision, a removal, a rejected line, a foreign row
+    path = write(tmp_path, "v2.csv.gz", v2)  # a revision, a removal, a rejected line, a foreign row
 
     def fail(*args, **kwargs):
         raise RuntimeError("interrupted")
-    monkeypatch.setattr(load, "_record", fail)      # the merge's last statement
+
+    monkeypatch.setattr(load, "_record", fail)  # the merge's last statement
     with pytest.raises(RuntimeError, match="interrupted"):
         load.load_observations(conn, "r2", STATION, path, "sha2")
     assert snapshot() == before

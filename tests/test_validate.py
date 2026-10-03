@@ -26,8 +26,9 @@ def test_invented_number_fails():
 
 
 def test_misquoted_citation_fails():
-    checks = validate("A high of 23 °C and a low of 15.3 °C.", [{"element": "TMAX", "value": 23}, CITED[1]],
-                      FACTS, "2026-09-28")
+    checks = validate(
+        "A high of 23 °C and a low of 15.3 °C.", [{"element": "TMAX", "value": 23}, CITED[1]], FACTS, "2026-09-28"
+    )
     assert {"cited_values_match", "numbers_grounded"} <= failures(checks)
 
 
@@ -57,20 +58,29 @@ def test_unicode_minus_is_read_as_negative():
 
 
 def test_false_claim_of_missing_data_fails_but_clauses_are_kept_apart():
-    facts = [{"element": "PRCP", "value": 0.0, "status": "valid"},
-             {"element": "TMAX", "value": None, "status": "missing"},
-             {"element": "TMIN", "value": None, "status": "missing"}]
+    facts = [
+        {"element": "PRCP", "value": 0.0, "status": "valid"},
+        {"element": "TMAX", "value": None, "status": "missing"},
+        {"element": "TMIN", "value": None, "status": "missing"},
+    ]
     wrong = validate("Temperatures and precipitation were missing.", [], facts, "2026-09-16")
-    right = validate("Vancouver recorded no measurable precipitation, with temperatures unavailable.", [], facts,
-                     "2026-09-16")
+    right = validate(
+        "Vancouver recorded no measurable precipitation, with temperatures unavailable.", [], facts, "2026-09-16"
+    )
     assert "no_false_gaps" in failures(wrong) and not passed(wrong)
     assert "no_false_gaps" not in failures(right)
 
 
 GUSTY = FACTS[:3] + [
     {"element": "WSFG", "label": "Peak gust wind speed", "value": 32.0, "unit": "km/h", "status": "valid"},
-    {"element": "WDFG", "label": "Direction of peak wind gust", "value": 290.0, "unit": "degrees", "status": "valid",
-     "compass": "W"},
+    {
+        "element": "WDFG",
+        "label": "Direction of peak wind gust",
+        "value": 290.0,
+        "unit": "degrees",
+        "status": "valid",
+        "compass": "W",
+    },
 ]
 
 
@@ -90,12 +100,19 @@ def test_swapped_high_and_low_fail():
 def test_trace_is_not_dry():
     assert "no_false_zero" in failures(validate("It stayed dry with a high of 21 °C.", [], FACTS, "2026-09-28"))
     assert "no_false_zero" not in failures(
-        validate("There was no measurable precipitation, only a trace.", [], FACTS, "2026-09-28"))
+        validate("There was no measurable precipitation, only a trace.", [], FACTS, "2026-09-28")
+    )
 
 
 def test_naming_another_city_fails():
-    checks = validate("Montreal reached a high of 21 °C and a low of 15 °C.", CITED, FACTS, "2026-09-28",
-                      city="Toronto", other_cities=["Toronto", "Montreal"])
+    checks = validate(
+        "Montreal reached a high of 21 °C and a low of 15 °C.",
+        CITED,
+        FACTS,
+        "2026-09-28",
+        city="Toronto",
+        other_cities=["Toronto", "Montreal"],
+    )
     assert {c.name: c.severity for c in checks if not c.passed}.get("names_own_city") == "error"
 
 

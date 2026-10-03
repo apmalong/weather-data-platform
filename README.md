@@ -506,6 +506,17 @@ so, and the task retries.
   - **More data observability:** anomaly detection on volumes and value distributions per station and
     element (today's check is only a row-count swing), dbt source freshness, and column-level lineage.
 
+## Code style
+
+- **Python:** formatted by [black](https://black.readthedocs.io) and linted by ruff, both at 120
+  characters (`pyproject.toml`).
+- **SQL:** [Matt Mazur's SQL style guide](https://github.com/mattm/sql-style-guide), enforced by
+  sqlfluff (`.sqlfluff`); [docs/dbt_models.md](docs/dbt_models.md#sql-style) lists where the guide
+  needs judgement and how it's applied.
+
+CI fails on any violation: `uv run black --check src tests orchestration`, `uv run ruff check .`,
+`uv run sqlfluff lint dbt/models dbt/tests`.
+
 ## Repository layout
 
 ```

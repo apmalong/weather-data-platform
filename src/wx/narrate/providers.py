@@ -6,6 +6,7 @@ retired for the key (404) falls through to the next; a per-minute 429 waits the 
 for; a per-day 429 moves to the next model (quotas are per model) and, when none is left, raises
 QuotaExhausted so the run stops cleanly and the next run resumes from the cache.
 """
+
 import json
 import logging
 import re
@@ -55,9 +56,14 @@ class StationDay:
     feedback: dict | None = None  # a repair request: the previous recap and what was wrong with it
 
     def payload(self) -> dict:
-        return {"station_id": self.station_id, "city": f"{self.city}, {self.province}",
-                "station": self.station_name, "date": self.obs_date, "facts": self.facts,
-                **(self.feedback or {})}
+        return {
+            "station_id": self.station_id,
+            "city": f"{self.city}, {self.province}",
+            "station": self.station_name,
+            "date": self.obs_date,
+            "facts": self.facts,
+            **(self.feedback or {}),
+        }
 
 
 @dataclass
@@ -91,10 +97,12 @@ class Provider(Protocol):
 class GeminiProvider:
     name = "gemini"
 
-    def __init__(self, api_key: str, models: list[str], temperature: float, max_attempts: int = 4,
-                 client=None, sleep=time.sleep):
+    def __init__(
+        self, api_key: str, models: list[str], temperature: float, max_attempts: int = 4, client=None, sleep=time.sleep
+    ):
         if client is None:
             from google import genai  # imported here so the mock path needs no SDK
+
             client = genai.Client(api_key=api_key)
         self._client = client
         self._sleep = sleep
@@ -110,6 +118,7 @@ class GeminiProvider:
 
     def generate(self, days: list[StationDay], instructions: str) -> Call:
         from google.genai import errors, types
+
         contents = json.dumps([d.payload() for d in days], ensure_ascii=False)
         config = types.GenerateContentConfig(
             system_instruction=instructions,
@@ -137,7 +146,7 @@ class GeminiProvider:
                     self._models.pop(0)
                     continue
                 if exc.code in (429, 500, 502, 503, 504) and attempts < self._max_attempts:
-                    delay = _retry_delay(detail) or min(60, 2 ** attempts * 5)
+                    delay = _retry_delay(detail) or min(60, 2**attempts * 5)
                     notes.append(f"{model}: {exc.code}, retrying in {delay:.0f}s")
                     log.warning(notes[-1])
                     self._sleep(delay)
@@ -150,8 +159,15 @@ class GeminiProvider:
             except (ValueError, KeyError, TypeError) as exc:
                 raise ProviderError(f"{model}: response isn't the expected JSON: {text[:200]!r}") from exc
             usage = response.usage_metadata
-            return Call(drafts, model, getattr(usage, "prompt_token_count", 0) or 0,
-                        getattr(usage, "candidates_token_count", 0) or 0, attempts, waited, notes)
+            return Call(
+                drafts,
+                model,
+                getattr(usage, "prompt_token_count", 0) or 0,
+                getattr(usage, "candidates_token_count", 0) or 0,
+                attempts,
+                waited,
+                notes,
+            )
 
 
 def _retry_delay(detail: str) -> float | None:
@@ -201,5 +217,9 @@ class MockProvider:
         if gust:
             sentences.append(f"Gusts peaked at {round(gust['value']):g} km/h.")
             cited.append({"element": "WSFG", "value": gust["value"]})
-        return {"station_id": day.station_id, "date": day.obs_date, "narrative": " ".join(sentences[:3]),
-                "cited": cited}
+        return {
+            "station_id": day.station_id,
+            "date": day.obs_date,
+            "narrative": " ".join(sentences[:3]),
+            "cited": cited,
+        }

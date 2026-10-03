@@ -7,9 +7,11 @@ from wx import config, ops
 from wx.narrate import pipeline
 from wx.narrate.providers import MockProvider
 
-FACTS = [{"element": "TMAX", "label": "Maximum temperature", "value": 21.4, "unit": "degrees C", "status": "valid"},
-         {"element": "TMIN", "label": "Minimum temperature", "value": 15.3, "unit": "degrees C", "status": "valid"},
-         {"element": "PRCP", "label": "Precipitation", "value": 2.0, "unit": "mm", "status": "valid"}]
+FACTS = [
+    {"element": "TMAX", "label": "Maximum temperature", "value": 21.4, "unit": "degrees C", "status": "valid"},
+    {"element": "TMIN", "label": "Minimum temperature", "value": 15.3, "unit": "degrees C", "status": "valid"},
+    {"element": "PRCP", "label": "Precipitation", "value": 2.0, "unit": "mm", "status": "valid"},
+]
 
 
 @pytest.fixture
@@ -22,8 +24,11 @@ def cfg(tmp_path, monkeypatch):
     conn.execute("""create table marts.mart_narrative_input (station_id varchar, city varchar, province varchar,
                     station_name varchar, obs_date date, facts json, input_hash varchar)""")
     for day in range(20, 30):
-        conn.execute("insert into marts.mart_narrative_input values ('CAN06158731', 'Toronto', 'ON', "
-                     "'TORONTO INTL A', ?, ?, ?)", [f"2026-09-{day}", json.dumps(FACTS), f"h{day}"])
+        conn.execute(
+            "insert into marts.mart_narrative_input values ('CAN06158731', 'Toronto', 'ON', "
+            "'TORONTO INTL A', ?, ?, ?)",
+            [f"2026-09-{day}", json.dumps(FACTS), f"h{day}"],
+        )
     conn.close()
     return cfg
 
@@ -54,8 +59,10 @@ def test_request_cap_defers_the_rest(cfg):
 def test_days_with_nothing_to_report_skip_the_model(cfg):
     empty = [dict(f, status="missing", value=None) for f in FACTS]
     conn = duckdb.connect(str(cfg.warehouse))
-    conn.execute("update marts.mart_narrative_input set facts = ?, input_hash = 'empty' where obs_date = '2026-09-29'",
-                 [json.dumps(empty)])
+    conn.execute(
+        "update marts.mart_narrative_input set facts = ?, input_hash = 'empty' where obs_date = '2026-09-29'",
+        [json.dumps(empty)],
+    )
     conn.close()
     result = pipeline.run(cfg, provider=MockProvider(), days=1)
     assert (result["no_data"], result["requests"], result["passed"]) == (1, 0, 1)
@@ -66,10 +73,13 @@ def test_days_with_nothing_to_report_skip_the_model(cfg):
 def test_stale_stations_are_not_narrated(cfg):
     """A station whose data stopped arriving would get narratives about weeks-old weather."""
     conn = duckdb.connect(str(cfg.warehouse))
-    conn.execute("create table marts.mart_data_quality (station_id varchar, city varchar, element varchar, "
-                 "freshness varchar)")
-    conn.execute("insert into marts.mart_data_quality values ('CAN06158731', 'Toronto', 'TMAX', 'stale'), "
-                 "('CAN06158731', 'Toronto', 'SNWD', 'not_applicable')")
+    conn.execute(
+        "create table marts.mart_data_quality (station_id varchar, city varchar, element varchar, " "freshness varchar)"
+    )
+    conn.execute(
+        "insert into marts.mart_data_quality values ('CAN06158731', 'Toronto', 'TMAX', 'stale'), "
+        "('CAN06158731', 'Toronto', 'SNWD', 'not_applicable')"
+    )
     conn.close()
     result = pipeline.run(cfg, provider=MockProvider(), days=3)
     assert (result["generated"], result["requests"], result["skipped_stale"]) == (0, 0, ["Toronto"])
@@ -77,8 +87,9 @@ def test_stale_stations_are_not_narrated(cfg):
 
 def test_lagging_stations_are_still_narrated(cfg):
     conn = duckdb.connect(str(cfg.warehouse))
-    conn.execute("create table marts.mart_data_quality (station_id varchar, city varchar, element varchar, "
-                 "freshness varchar)")
+    conn.execute(
+        "create table marts.mart_data_quality (station_id varchar, city varchar, element varchar, " "freshness varchar)"
+    )
     conn.execute("insert into marts.mart_data_quality values ('CAN06158731', 'Toronto', 'TMAX', 'lagging')")
     conn.close()
     result = pipeline.run(cfg, provider=MockProvider(), days=3)
@@ -90,7 +101,7 @@ def test_a_narrative_is_never_stored_without_its_validation(cfg):
     first is rolled back, so the cache never holds a narrative that was never checked."""
     conn = ops.connect(cfg.warehouse)
     conn.execute(pipeline.DDL)
-    conn.execute("drop view narratives.latest; drop table narratives.validation")   # the second insert fails
+    conn.execute("drop view narratives.latest; drop table narratives.validation")  # the second insert fails
     day = pipeline.StationDay("CAN06158731", "Toronto", "ON", "TORONTO INTL A", "2026-09-29", FACTS, "h29")
     draft = {"narrative": "Toronto saw a high of 21 °C and a low of 15 °C, with 2 mm of rain.", "cited": []}
     with pytest.raises(duckdb.CatalogException):

@@ -5,20 +5,24 @@
 {% set elements = scoped_elements() %}
 
 select
-    d.station_id,
-    s.city,
-    s.station_name,
-    d.obs_date,
+    cells.station_id,
+    stations.city,
+    stations.station_name,
+    cells.obs_date,
     {%- for e in elements %}
-    max(d.value) filter (where d.element = '{{ e.code }}') as {{ e.code | lower }},
-    max(d.status) filter (where d.element = '{{ e.code }}') as {{ e.code | lower }}_status,
+    max(cells.value) filter (where cells.element = '{{ e.code }}') as {{ e.code | lower }},
+    max(cells.status) filter (where cells.element = '{{ e.code }}') as {{ e.code | lower }}_status,
     {%- endfor %}
-    count(*) filter (where d.is_core and d.is_expected) as core_expected,
-    count(*) filter (where d.is_core and d.is_expected and d.status in ('valid', 'trace', 'not_reported'))
+    count(*) filter (where cells.is_core = true and cells.is_expected = true) as core_expected,
+    count(*) filter (
+        where cells.is_core = true and cells.is_expected = true and cells.status in ('valid', 'trace', 'not_reported')
+    )
         as core_present,
-    string_agg(d.element, ', ' order by d.element) filter (where d.status = 'missing') as missing_elements,
-    string_agg(d.element, ', ' order by d.element) filter (where d.status in ('qc_failed', 'out_of_bounds', 'inconsistent', 'unparseable'))
+    string_agg(cells.element, ', ' order by cells.element) filter (where cells.status = 'missing') as missing_elements,
+    string_agg(cells.element, ', ' order by cells.element) filter (
+        where cells.status in ('qc_failed', 'out_of_bounds', 'inconsistent', 'unparseable')
+    )
         as quarantined_elements
-from {{ ref('fct_station_day_element') }} d
-join {{ ref('int_stations__selected') }} s on s.station_id = d.station_id
+from {{ ref('fct_station_day_element') }} as cells
+inner join {{ ref('int_stations__selected') }} as stations on cells.station_id = stations.station_id
 group by all

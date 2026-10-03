@@ -16,6 +16,7 @@ Errors fail the narrative; warnings are recorded but don't.
   acknowledges_gaps      warn: a temperature or precipitation reading was missing but not mentioned
   length                 warn: 1-3 sentences, at most 450 characters
 """
+
 import re
 from dataclasses import dataclass
 
@@ -26,11 +27,19 @@ UNAVAILABLE = {"missing", "qc_failed", "out_of_bounds", "inconsistent", "unparse
 INVENTED = re.compile(
     r"\b(forecast|tomorrow|humid\w*|cloud\w*|sunny|sunshine|fog\w*|visibility|record|thunder\w*|pressure|"
     r"warmer than|colder than|than yesterday|hail\w*|sleet|freezing rain|freezing drizzle|drizzl\w*|"
-    r"ice pellets|lightning|tornado\w*|hurricane|smoke|haze|hazy)\b", re.I)
+    r"ice pellets|lightning|tornado\w*|hurricane|smoke|haze|hazy)\b",
+    re.I,
+)
 GAP_WORDS = re.compile(r"\b(not available|unavailable|missing|no reading|wasn't recorded|was not recorded)\b", re.I)
 # Which elements a clause is about, for checking claims that a reading was missing.
-TOPICS = {"temperature": ("TMAX", "TMIN"), "precipitation": ("PRCP",), "rain": ("PRCP",),
-          "snowfall": ("SNOW",), "gust": ("WSFG",), "wind": ("WSFG",)}
+TOPICS = {
+    "temperature": ("TMAX", "TMIN"),
+    "precipitation": ("PRCP",),
+    "rain": ("PRCP",),
+    "snowfall": ("SNOW",),
+    "gust": ("WSFG",),
+    "wind": ("WSFG",),
+}
 NUMBER = re.compile(r"(?<![\w.])[-−]?\d+(?:\.\d+)?")
 CLAUSES = re.compile(r"[.!?;,]\s+")
 
@@ -41,12 +50,23 @@ TEMPERATURE_CLAIM = r"\b{word}s?\b[^.;\d−-]{{0,20}}?([-−]?\d+(?:\.\d+)?)\s*(
 # the 8-point point the facts give, so they fail, which is the point.
 COMPASS_ABBR = re.compile(r"(?<![\w-])(NNE|ENE|ESE|SSE|SSW|WSW|WNW|NNW|NE|SE|SW|NW|N|E|S|W)(?![\w-])")
 COMPASS_WORD = re.compile(r"\b(north|south)?-?(east|west)?(?:erly|ern)?\b", re.I)
-WORD_TO_POINT = {("north", None): "N", ("south", None): "S", (None, "east"): "E", (None, "west"): "W",
-                 ("north", "east"): "NE", ("north", "west"): "NW", ("south", "east"): "SE", ("south", "west"): "SW"}
+WORD_TO_POINT = {
+    ("north", None): "N",
+    ("south", None): "S",
+    (None, "east"): "E",
+    (None, "west"): "W",
+    ("north", "east"): "NE",
+    ("north", "west"): "NW",
+    ("south", "east"): "SE",
+    ("south", "west"): "SW",
+}
 
 # Claims that something was zero.
-DRY = re.compile(r"\b(stayed|remained|was|were|kept)\s+dry\b|\bdry\s+(day|conditions|weather|skies)\b|"
-                 r"\bno\s+(rain|precipitation)\b", re.I)
+DRY = re.compile(
+    r"\b(stayed|remained|was|were|kept)\s+dry\b|\bdry\s+(day|conditions|weather|skies)\b|"
+    r"\bno\s+(rain|precipitation)\b",
+    re.I,
+)
 NO_MEASURABLE = re.compile(r"\bno\s+measurable\s+(rain|precipitation)\b", re.I)  # true for a trace too
 NO_SNOWFALL = re.compile(r"\bno\s+(new\s+)?snow(fall)?\b(?!\s+on\s+the\s+ground)", re.I)
 NO_SNOW_ON_GROUND = re.compile(r"\bno\s+snow\s+on\s+the\s+ground\b", re.I)
@@ -77,8 +97,15 @@ def _compass_named(narrative: str) -> list[str]:
     return points
 
 
-def validate(narrative: str, cited: list[dict], facts: list[dict], obs_date: str, city: str | None = None,
-             other_cities: tuple[str, ...] | list[str] = (), intensity=()) -> list[Check]:
+def validate(
+    narrative: str,
+    cited: list[dict],
+    facts: list[dict],
+    obs_date: str,
+    city: str | None = None,
+    other_cities: tuple[str, ...] | list[str] = (),
+    intensity=(),
+) -> list[Check]:
     by_element = {f["element"]: f for f in facts}
     usable_values = [f["value"] for f in facts if f["status"] in USABLE and f["value"] is not None]
     text = narrative.replace("−", "-")
@@ -116,9 +143,18 @@ def validate(narrative: str, cited: list[dict], facts: list[dict], obs_date: str
     expected = {f["compass"] for f in facts if f.get("compass")}
     named = _compass_named(narrative)
     wrong_points = [p for p in named if p not in expected]
-    checks.append(Check("compass_matches", not wrong_points, "error",
-                        f"named {', '.join(wrong_points)}; facts give {', '.join(sorted(expected)) or 'no direction'}"
-                        if wrong_points else ""))
+    checks.append(
+        Check(
+            "compass_matches",
+            not wrong_points,
+            "error",
+            (
+                f"named {', '.join(wrong_points)}; facts give {', '.join(sorted(expected)) or 'no direction'}"
+                if wrong_points
+                else ""
+            ),
+        )
+    )
 
     false_zero = []
     prcp, snow, snwd = (by_element.get(e, {}) for e in ("PRCP", "SNOW", "SNWD"))
@@ -131,7 +167,8 @@ def validate(narrative: str, cited: list[dict], facts: list[dict], obs_date: str
         if NO_SNOWFALL.search(clause) and not (snow.get("status") == "valid" and snow.get("value") == 0):
             false_zero.append(f"no snowfall, but SNOW is {snow.get('status')} {snow.get('value')}")
         if NO_SNOW_ON_GROUND.search(clause) and not (
-                snwd.get("status") == "not_reported" or (snwd.get("status") == "valid" and snwd.get("value") == 0)):
+            snwd.get("status") == "not_reported" or (snwd.get("status") == "valid" and snwd.get("value") == 0)
+        ):
             false_zero.append(f"no snow on the ground, but SNWD is {snwd.get('status')} {snwd.get('value')}")
     checks.append(Check("no_false_zero", not false_zero, "error", "; ".join(false_zero)))
 
@@ -141,7 +178,8 @@ def validate(narrative: str, cited: list[dict], facts: list[dict], obs_date: str
         if GAP_WORDS.search(clause):
             for word, elements in TOPICS.items():
                 if re.search(rf"\b{word}", clause, re.I) and all(
-                        by_element.get(e, {}).get("status") in USABLE for e in elements):
+                    by_element.get(e, {}).get("status") in USABLE for e in elements
+                ):
                     false_gaps.append(word)
     checks.append(Check("no_false_gaps", not false_gaps, "error", ", ".join(sorted(set(false_gaps)))))
 
@@ -160,8 +198,11 @@ def validate(narrative: str, cited: list[dict], facts: list[dict], obs_date: str
         if not match:
             continue
         fact = by_element.get(_get(rule, "element"), {})
-        value = (fact.get("value") if fact.get("status") in USABLE
-                 else 0 if fact.get("status") in ("not_reported", None) else None)
+        value = (
+            fact.get("value")
+            if fact.get("status") in USABLE
+            else 0 if fact.get("status") in ("not_reported", None) else None
+        )
         low, high = _get(rule, "min"), _get(rule, "max")
         if value is None or (low is not None and value < low) or (high is not None and value > high):
             unsupported.append(f"'{match.group(0)}' with {_get(rule, 'element')}={value}")

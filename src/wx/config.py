@@ -1,4 +1,5 @@
 """Pipeline configuration: config/pipeline.yml, validated on load so a typo fails fast."""
+
 import os
 import unicodedata
 from datetime import date, timedelta

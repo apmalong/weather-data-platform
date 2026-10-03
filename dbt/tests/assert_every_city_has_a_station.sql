@@ -1,5 +1,5 @@
 -- Every configured city made it through to the marts with its station.
-select c.city
-from {{ source('config', 'selected_stations') }} c
-left join {{ ref('dim_station') }} d on d.city = c.city
-where d.city is null
+select configured.city
+from {{ source('config', 'selected_stations') }} as configured
+left join {{ ref('dim_station') }} as dims on configured.city = dims.city
+where dims.city is null

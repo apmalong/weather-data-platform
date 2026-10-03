@@ -1,0 +1,79 @@
+# SQL style: Matt Mazur's guide (github.com/mattm/sql-style-guide), enforced by sqlfluff.
+#   uv run sqlfluff lint dbt      check (CI runs this)
+#   uv run sqlfluff fix dbt       fix what can be fixed automatically
+# Rules the guide has but no linter can judge (meaningful CTE and alias names, ending with a
+# `select *` from the last CTE) are followed by hand; see docs/dbt_models.md.
+
+[sqlfluff]
+dialect = duckdb
+templater = jinja
+max_line_length = 120
+rules = all
+# ST06 (wildcards and simple columns first) isn't in the guide, which orders by key, then the rest.
+# AM04 (select * has unknown columns) would forbid the guide's own `select * from final_cte`.
+# AL07 (no table aliases) is relaxed by the guide for long names; dbt refs are long, so aliases are
+# allowed but must be meaningful words (AL06 rules out one- and two-letter ones).
+exclude_rules = ST06, AM04, AL07
+
+[sqlfluff:indentation]
+indent_unit = space
+tab_space_size = 4
+# Jinja blocks ({% if is_incremental() %}) don't add a level: the SQL inside lines up with the SQL around it
+template_blocks_indent = False
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = True
+load_macros_from_path = dbt/macros
+
+# Lowercase everything (guide: lowercase SQL)
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower
+
+# Trailing commas
+[sqlfluff:rules:layout.commas]
+line_position = trailing
+
+# != rather than <>
+[sqlfluff:rules:convention.not_equal]
+preferred_not_equal_style = c_style
+
+# Single quotes for strings
+[sqlfluff:rules:convention.quoted_literals]
+preferred_quoted_literal_style = single_quotes
+
+# `inner join`, not `join`
+[sqlfluff:rules:ambiguous.join]
+fully_qualify_join_types = inner
+
+# The table referenced first goes right after `on`
+[sqlfluff:rules:structure.join_condition_order]
+preferred_first_table_in_join_clause = earlier
+
+# Group by names or numbers, never both
+[sqlfluff:rules:ambiguous.column_references]
+group_by_and_order_by_style = consistent
+
+# Qualify columns when there's a join; leave them unqualified when there's one table
+[sqlfluff:rules:references.consistent]
+single_table_references = unqualified
+
+# CTEs, not subqueries in from or join
+[sqlfluff:rules:structure.subquery]
+forbid_subquery_in = both
+
+# Meaningful aliases, not abbreviations
+[sqlfluff:rules:aliasing.length]
+min_alias_length = 3
+
+# Column names that are also SQL keywords. They're part of the tables' interface to the report and
+# the narratives, so they stay; the guide says nothing about keywords as names.
+[sqlfluff:rules:references.keywords]
+ignore_words = value, label

@@ -1,6 +1,7 @@
 """The ops ledger: every stage records what it did in the warehouse's `ops` schema, so a run can be
 explained after the fact and health checks have history to compare against (`wx health`, `wx report`).
 """
+
 import functools
 import json
 import uuid
@@ -51,9 +52,11 @@ def connect(path) -> duckdb.DuckDBPyConnection:
         conn = duckdb.connect(str(path))
     except duckdb.IOException as exc:
         if any(text in str(exc).lower() for text in _LOCKED):
-            raise WarehouseLocked(f"{path} is open in another process (DuckDB allows one writer): stop "
-                                  f"`wx --explore`, a DuckDB UI or CLI, or another pipeline run, then retry. "
-                                  f"DuckDB said: {str(exc).splitlines()[0]}") from exc
+            raise WarehouseLocked(
+                f"{path} is open in another process (DuckDB allows one writer): stop "
+                f"`wx --explore`, a DuckDB UI or CLI, or another pipeline run, then retry. "
+                f"DuckDB said: {str(exc).splitlines()[0]}"
+            ) from exc
         raise
     conn.execute("set TimeZone = 'UTC'")
     conn.execute(DDL)
@@ -85,10 +88,12 @@ def transaction(conn: duckdb.DuckDBPyConnection):
 def atomic(fn):
     """Run fn(conn, ...) in one transaction. For writes that span several statements: a merge, a
     table replaced together with its load record, a narrative with its validation."""
+
     @functools.wraps(fn)
     def wrapper(conn, *args, **kwargs):
         with transaction(conn):
             return fn(conn, *args, **kwargs)
+
     return wrapper
 
 
@@ -97,21 +102,30 @@ def run(conn: duckdb.DuckDBPyConnection, command: str):
     """Record a pipeline run; yields its id and a dict for details to store with it."""
     run_id = f"{now():%Y%m%dT%H%M%S}-{uuid.uuid4().hex[:6]}"
     details: dict = {}
-    conn.execute("insert into ops.runs (run_id, command, started_at, status) values (?, ?, ?, 'running')",
-                 [run_id, command, now()])
+    conn.execute(
+        "insert into ops.runs (run_id, command, started_at, status) values (?, ?, ?, 'running')",
+        [run_id, command, now()],
+    )
     try:
         yield run_id, details
     except BaseException as exc:
-        conn.execute("update ops.runs set finished_at = ?, status = 'failed', error = ?, details = ? where run_id = ?",
-                     [now(), f"{type(exc).__name__}: {exc}"[:1000], json.dumps(details, default=str), run_id])
+        conn.execute(
+            "update ops.runs set finished_at = ?, status = 'failed', error = ?, details = ? where run_id = ?",
+            [now(), f"{type(exc).__name__}: {exc}"[:1000], json.dumps(details, default=str), run_id],
+        )
         raise
-    conn.execute("update ops.runs set finished_at = ?, status = 'success', details = ? where run_id = ?",
-                 [now(), json.dumps(details, default=str), run_id])
+    conn.execute(
+        "update ops.runs set finished_at = ?, status = 'success', details = ? where run_id = ?",
+        [now(), json.dumps(details, default=str), run_id],
+    )
 
 
-def check(conn, run_id: str, stage: str, name: str, subject: str, passed: bool, observed, expected,
-          severity: str = "error") -> bool:
+def check(
+    conn, run_id: str, stage: str, name: str, subject: str, passed: bool, observed, expected, severity: str = "error"
+) -> bool:
     """Record one data-quality check result; returns whether it passed."""
-    conn.execute("insert into ops.checks values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                 [run_id, stage, name, subject, severity, passed, str(observed), str(expected), now()])
+    conn.execute(
+        "insert into ops.checks values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [run_id, stage, name, subject, severity, passed, str(observed), str(expected), now()],
+    )
     return passed

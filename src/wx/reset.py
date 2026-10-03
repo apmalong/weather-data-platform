@@ -7,6 +7,7 @@
 Only files the pipeline creates are removed, never the whole data folder (WX_DATA_DIR can point
 anywhere). Asks for confirmation unless --yes.
 """
+
 import shutil
 from pathlib import Path
 

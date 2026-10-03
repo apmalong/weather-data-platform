@@ -4,6 +4,7 @@ dbt's own results go to ops.dbt_runs / ops.dbt_node_runs through the project's o
 tagged with this run's id (WX_RUN_ID). The ops connection is closed while dbt runs because DuckDB
 allows one writer.
 """
+
 import json
 import os
 import uuid
@@ -24,11 +25,15 @@ def _record(cfg: Config, run_id: str, status: str | None = None, details: dict |
     conn = ops.connect(cfg.warehouse)
     try:
         if status is None:
-            conn.execute("insert into ops.runs (run_id, command, started_at, status) values (?, 'transform', ?, "
-                         "'running')", [run_id, ops.now()])
+            conn.execute(
+                "insert into ops.runs (run_id, command, started_at, status) values (?, 'transform', ?, " "'running')",
+                [run_id, ops.now()],
+            )
         else:
-            conn.execute("update ops.runs set finished_at = ?, status = ?, error = ?, details = ? where run_id = ?",
-                         [ops.now(), status, error, json.dumps(details or {}), run_id])
+            conn.execute(
+                "update ops.runs set finished_at = ?, status = ?, error = ?, details = ? where run_id = ?",
+                [ops.now(), status, error, json.dumps(details or {}), run_id],
+            )
     finally:
         conn.close()
 

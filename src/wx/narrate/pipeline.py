@@ -10,6 +10,7 @@
 Re-running is cheap and safe: cached narratives are skipped, so a run cut short by the free tier's
 daily quota resumes where it stopped.
 """
+
 import dataclasses
 import hashlib
 import json
@@ -87,7 +88,8 @@ def stale_stations(conn) -> dict[str, str]:
 
 
 def pending(conn, cfg: Config, model: str, prompt_version: str, days: int) -> list[StationDay]:
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         select i.station_id, i.city, i.province, i.station_name, i.obs_date::varchar, i.facts, i.input_hash
         from marts.mart_narrative_input i
         where i.obs_date > (select max(obs_date) from marts.mart_narrative_input m
@@ -95,14 +97,17 @@ def pending(conn, cfg: Config, model: str, prompt_version: str, days: int) -> li
           and not exists (select 1 from narratives.daily n
                           where n.station_id = i.station_id and n.obs_date = i.obs_date
                             and n.input_hash = i.input_hash and n.model = ? and n.prompt_version = ?)
-        order by i.obs_date desc, i.city""", [days, model, prompt_version]).fetchall()
+        order by i.obs_date desc, i.city""",
+        [days, model, prompt_version],
+    ).fetchall()
     return [StationDay(r[0], r[1], r[2], r[3], r[4], json.loads(r[5]), r[6]) for r in rows]
 
 
 def unrepaired(conn, cfg: Config, model: str, prompt_version: str, days: int) -> list[tuple]:
     """Stored narratives for current facts that failed on their first attempt and were never retried
     (an earlier run, or one whose quota ran out before the repair), ready for the repair pass."""
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         select i.station_id, i.city, i.province, i.station_name, i.obs_date::varchar, i.facts, i.input_hash,
                l.narrative, l.cited
         from narratives.latest l
@@ -110,33 +115,82 @@ def unrepaired(conn, cfg: Config, model: str, prompt_version: str, days: int) ->
           on i.station_id = l.station_id and i.obs_date = l.obs_date and i.input_hash = l.input_hash
         where not l.passed and l.attempt = 1 and l.model = ? and l.prompt_version = ?
           and i.obs_date > (select max(obs_date) from marts.mart_narrative_input m
-                            where m.station_id = i.station_id) - ?::int""", [model, prompt_version, days]).fetchall()
+                            where m.station_id = i.station_id) - ?::int""",
+        [model, prompt_version, days],
+    ).fetchall()
     failures = []
     for r in rows:
         day = StationDay(r[0], r[1], r[2], r[3], r[4], json.loads(r[5]), r[6])
         draft = {"narrative": r[7], "cited": json.loads(r[8])}
-        checks = validate.validate(draft["narrative"], draft["cited"], day.facts, day.obs_date, day.city,
-                                   [c.city for c in cfg.stations.cities], cfg.narratives.intensity)
+        checks = validate.validate(
+            draft["narrative"],
+            draft["cited"],
+            day.facts,
+            day.obs_date,
+            day.city,
+            [c.city for c in cfg.stations.cities],
+            cfg.narratives.intensity,
+        )
         failures.append((day, draft, checks))
     return failures
 
 
 @ops.atomic  # a narrative is never stored without its validation
-def _store(conn, run_id: str, provider_name: str, model: str, prompt_version: str, day: StationDay, draft: dict,
-           cfg: Config, attempt: int = 1) -> list[validate.Check]:
-    checks = validate.validate(draft["narrative"], draft.get("cited") or [], day.facts, day.obs_date, day.city,
-                               [c.city for c in cfg.stations.cities], cfg.narratives.intensity)
-    conn.execute("""insert into narratives.daily (station_id, obs_date, input_hash, provider, model, prompt_version,
+def _store(
+    conn,
+    run_id: str,
+    provider_name: str,
+    model: str,
+    prompt_version: str,
+    day: StationDay,
+    draft: dict,
+    cfg: Config,
+    attempt: int = 1,
+) -> list[validate.Check]:
+    checks = validate.validate(
+        draft["narrative"],
+        draft.get("cited") or [],
+        day.facts,
+        day.obs_date,
+        day.city,
+        [c.city for c in cfg.stations.cities],
+        cfg.narratives.intensity,
+    )
+    conn.execute(
+        """insert into narratives.daily (station_id, obs_date, input_hash, provider, model, prompt_version,
                         narrative, cited, run_id, generated_at, attempt) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                 [day.station_id, day.obs_date, day.input_hash, provider_name, model, prompt_version,
-                  draft["narrative"], json.dumps(draft.get("cited") or []), run_id, ops.now(), attempt])
-    conn.execute("""insert into narratives.validation (station_id, obs_date, input_hash, model, prompt_version, passed,
+        [
+            day.station_id,
+            day.obs_date,
+            day.input_hash,
+            provider_name,
+            model,
+            prompt_version,
+            draft["narrative"],
+            json.dumps(draft.get("cited") or []),
+            run_id,
+            ops.now(),
+            attempt,
+        ],
+    )
+    conn.execute(
+        """insert into narratives.validation (station_id, obs_date, input_hash, model, prompt_version, passed,
                         failed_checks, warnings, checks, validated_at, attempt)
                     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                 [day.station_id, day.obs_date, day.input_hash, model, prompt_version, validate.passed(checks),
-                  ", ".join(c.name for c in checks if not c.passed and c.severity == "error") or None,
-                  ", ".join(c.name for c in checks if not c.passed and c.severity == "warn") or None,
-                  json.dumps([c.__dict__ for c in checks]), ops.now(), attempt])
+        [
+            day.station_id,
+            day.obs_date,
+            day.input_hash,
+            model,
+            prompt_version,
+            validate.passed(checks),
+            ", ".join(c.name for c in checks if not c.passed and c.severity == "error") or None,
+            ", ".join(c.name for c in checks if not c.passed and c.severity == "warn") or None,
+            json.dumps([c.__dict__ for c in checks]),
+            ops.now(),
+            attempt,
+        ],
+    )
     return checks
 
 
@@ -150,9 +204,18 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
     n = cfg.narratives
     conn = ops.connect(cfg.warehouse)
     conn.execute(DDL)
-    summary = {"provider": provider.name, "prompt_version": prompt_version, "generated": 0, "passed": 0,
-               "failed_validation": 0, "repaired": 0, "missing_from_response": 0, "requests": 0, "deferred": 0,
-               "no_data": 0}
+    summary = {
+        "provider": provider.name,
+        "prompt_version": prompt_version,
+        "generated": 0,
+        "passed": 0,
+        "failed_validation": 0,
+        "repaired": 0,
+        "missing_from_response": 0,
+        "requests": 0,
+        "deferred": 0,
+        "no_data": 0,
+    }
     pacing = {"interval": 60.0 / n.requests_per_minute, "last_start": 0.0}
 
     def request(run_id: str, batch: list[StationDay], text: str):
@@ -166,12 +229,34 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
         try:
             call = provider.generate(batch, text)
         except QuotaExhausted as exc:
-            _log_call(conn, run_id, summary["requests"] + 1, provider, model, prompt_version, batch, None, started,
-                      "quota_exhausted", str(exc))
+            _log_call(
+                conn,
+                run_id,
+                summary["requests"] + 1,
+                provider,
+                model,
+                prompt_version,
+                batch,
+                None,
+                started,
+                "quota_exhausted",
+                str(exc),
+            )
             raise _Stop(str(exc)) from exc
         except ProviderError as exc:
-            _log_call(conn, run_id, summary["requests"] + 1, provider, model, prompt_version, batch, None, started,
-                      "error", str(exc))
+            _log_call(
+                conn,
+                run_id,
+                summary["requests"] + 1,
+                provider,
+                model,
+                prompt_version,
+                batch,
+                None,
+                started,
+                "error",
+                str(exc),
+            )
             raise
         summary["requests"] += 1
         _log_call(conn, run_id, summary["requests"], provider, call.model, prompt_version, batch, call, started, "ok")
@@ -185,28 +270,38 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
                 skipped = [d for d in todo if d.station_id in stale]
                 todo = [d for d in todo if d.station_id not in stale]
                 summary["skipped_stale"] = sorted(stale.values())
-                log.warning("not narrating %s: data is stale (older than quality.freshness_error_days); "
-                            "%d station-days skipped", ", ".join(sorted(stale.values())), len(skipped))
+                log.warning(
+                    "not narrating %s: data is stale (older than quality.freshness_error_days); "
+                    "%d station-days skipped",
+                    ", ".join(sorted(stale.values())),
+                    len(skipped),
+                )
             summary["pending"] = len(todo)
             log.info("%d station-days need a narrative (%s, %s)", len(todo), provider.model, prompt_version)
             # Nothing usable to describe: write a fixed sentence rather than invite the model to invent one.
             for day in [d for d in todo if validate.nothing_to_report(d.facts)]:
-                draft = {"narrative": f"No temperature or precipitation readings were available for {day.city} "
-                                      f"on {day.obs_date}.", "cited": []}
+                draft = {
+                    "narrative": f"No temperature or precipitation readings were available for {day.city} "
+                    f"on {day.obs_date}.",
+                    "cited": [],
+                }
                 checks = _store(conn, run_id, "rule", provider.model, prompt_version, day, draft, cfg)
                 summary["no_data"] += 1
                 summary["generated"] += 1
                 summary["passed" if validate.passed(checks) else "failed_validation"] += 1
             todo = [d for d in todo if not validate.nothing_to_report(d.facts)]
 
-            failures = [f for f in unrepaired(conn, cfg, provider.model, prompt_version, days or n.days)
-                        if f[0].station_id not in stale]
+            failures = [
+                f
+                for f in unrepaired(conn, cfg, provider.model, prompt_version, days or n.days)
+                if f[0].station_id not in stale
+            ]
             carried = summary["carried_over"] = len(failures)
             if carried:
                 log.info("%d narratives from earlier runs failed validation and get their repair attempt", carried)
             try:
                 for start in range(0, len(todo), n.batch_size):
-                    batch = todo[start:start + n.batch_size]
+                    batch = todo[start : start + n.batch_size]
                     try:
                         call = request(run_id, batch, instructions)
                     except _Stop as stop:
@@ -228,17 +323,27 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
 
                 # One repair attempt: each failure goes back with its previous recap and its problems.
                 for start in range(0, len(failures) if n.repair_attempts else 0, n.batch_size):
-                    chunk = failures[start:start + n.batch_size]
-                    batch = [dataclasses.replace(day, feedback={
-                        "previous_narrative": draft["narrative"], "previous_cited": draft.get("cited") or [],
-                        "problems": [f"{c.name}: {c.detail}" for c in checks if not c.passed and c.severity == "error"],
-                    }) for day, draft, checks in chunk]
+                    chunk = failures[start : start + n.batch_size]
+                    batch = [
+                        dataclasses.replace(
+                            day,
+                            feedback={
+                                "previous_narrative": draft["narrative"],
+                                "previous_cited": draft.get("cited") or [],
+                                "problems": [
+                                    f"{c.name}: {c.detail}" for c in checks if not c.passed and c.severity == "error"
+                                ],
+                            },
+                        )
+                        for day, draft, checks in chunk
+                    ]
                     call = request(run_id, batch, instructions + REPAIR)
                     drafts = {(d.get("station_id"), d.get("date")): d for d in call.drafts}
                     for day, _, _ in chunk:
                         draft = drafts.get((day.station_id, day.obs_date))
-                        if draft and validate.passed(_store(conn, run_id, provider.name, call.model, prompt_version,
-                                                            day, draft, cfg, attempt=2)):
+                        if draft and validate.passed(
+                            _store(conn, run_id, provider.name, call.model, prompt_version, day, draft, cfg, attempt=2)
+                        ):
                             summary["repaired"] += 1
                     log.info("repair: %d of %d fixed", summary["repaired"], len(failures))
             except _Stop:
@@ -252,9 +357,24 @@ def run(cfg: Config, provider: Provider | None = None, days: int | None = None) 
 
 
 def _log_call(conn, run_id, call_no, provider, model, prompt_version, batch, call, started, status, error=None):
-    conn.execute("insert into ops.llm_calls values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                 [run_id, call_no, provider.name, model, prompt_version, len(batch),
-                  len(call.drafts) if call else 0, call.input_tokens if call else 0,
-                  call.output_tokens if call else 0, time.time() - started, call.attempts if call else 1,
-                  call.waited_seconds if call else 0, status, error, "; ".join(call.notes) if call else None,
-                  ops.now()])
+    conn.execute(
+        "insert into ops.llm_calls values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            run_id,
+            call_no,
+            provider.name,
+            model,
+            prompt_version,
+            len(batch),
+            len(call.drafts) if call else 0,
+            call.input_tokens if call else 0,
+            call.output_tokens if call else 0,
+            time.time() - started,
+            call.attempts if call else 1,
+            call.waited_seconds if call else 0,
+            status,
+            error,
+            "; ".join(call.notes) if call else None,
+            ops.now(),
+        ],
+    )

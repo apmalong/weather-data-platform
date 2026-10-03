@@ -8,6 +8,7 @@ raw, and publish the run's configuration for dbt.
 
 dbt reads only the warehouse, so `dbt build` on its own sees the same scope as `wx run`.
 """
+
 import logging
 from datetime import date
 
@@ -60,27 +61,48 @@ def _loaded(conn, dataset: str) -> bool:
 @ops.atomic  # dbt must never read one run's stations with another run's window or rules
 def _publish_config(conn, cfg: Config, stations: list[resolve.Station], start: date, end: date, run_id: str) -> None:
     conn.execute("create schema if not exists config")
-    conn.execute("create or replace table config.selected_stations (city varchar, province varchar, "
-                 "station_id varchar, station_name varchar, run_id varchar)")
-    conn.executemany("insert into config.selected_stations values (?, ?, ?, ?, ?)",
-                     [[s.city, s.province, s.station_id, s.name, run_id] for s in stations])
+    conn.execute(
+        "create or replace table config.selected_stations (city varchar, province varchar, "
+        "station_id varchar, station_name varchar, run_id varchar)"
+    )
+    conn.executemany(
+        "insert into config.selected_stations values (?, ?, ?, ?, ?)",
+        [[s.city, s.province, s.station_id, s.name, run_id] for s in stations],
+    )
     conn.execute("create or replace table config.window (start_date date, end_date date, run_id varchar)")
     conn.execute("insert into config.window values (?, ?, ?)", [start, end, run_id])
     q = cfg.quality
-    conn.execute("create or replace table config.quality (freshness_warn_days integer, freshness_error_days integer, "
-                 "volume_change_warn_pct double)")
-    conn.execute("insert into config.quality values (?, ?, ?)",
-                 [q.freshness_warn_days, q.freshness_error_days, q.volume_change_warn_pct])
+    conn.execute(
+        "create or replace table config.quality (freshness_warn_days integer, freshness_error_days integer, "
+        "volume_change_warn_pct double)"
+    )
+    conn.execute(
+        "insert into config.quality values (?, ?, ?)",
+        [q.freshness_warn_days, q.freshness_error_days, q.volume_change_warn_pct],
+    )
     e = cfg.elements
     codes = sorted(set(e.exclude) | set(e.absent_means_zero) | set(e.persistent) | set(e.bounds) | set(e.display))
-    conn.execute("create or replace table config.elements (element varchar, excluded boolean, "
-                 "absent_means_zero boolean, persistent boolean, fed_by varchar, lower_bound double, "
-                 "upper_bound double, display_unit varchar, display_factor double)")
-    conn.executemany("insert into config.elements values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                     [[c, c in e.exclude, c in e.absent_means_zero, c in e.persistent,
-                       e.persistent[c].fed_by if c in e.persistent else None, *(e.bounds.get(c) or (None, None)),
-                       e.display[c].unit if c in e.display else None,
-                       e.display[c].factor if c in e.display else None] for c in codes])
+    conn.execute(
+        "create or replace table config.elements (element varchar, excluded boolean, "
+        "absent_means_zero boolean, persistent boolean, fed_by varchar, lower_bound double, "
+        "upper_bound double, display_unit varchar, display_factor double)"
+    )
+    conn.executemany(
+        "insert into config.elements values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            [
+                c,
+                c in e.exclude,
+                c in e.absent_means_zero,
+                c in e.persistent,
+                e.persistent[c].fed_by if c in e.persistent else None,
+                *(e.bounds.get(c) or (None, None)),
+                e.display[c].unit if c in e.display else None,
+                e.display[c].factor if c in e.display else None,
+            ]
+            for c in codes
+        ],
+    )
 
 
 def run(cfg: Config, force: bool = False, today: date | None = None) -> dict:
@@ -95,10 +117,15 @@ def run(cfg: Config, force: bool = False, today: date | None = None) -> dict:
                 log.info("%s -> %s (%s)", s.city, s.station_id, s.name)
             base = cfg.source.base_url.rstrip("/")
             for s in stations:
-                got = fetch.download(conn, run_id, f"{base}/by_station/{s.station_id}.csv.gz",
-                                     cfg.data_dir / "raw" / "by_station" / f"{s.station_id}.csv.gz")
-                loaded = conn.execute("select count(*) from raw.observations where station_id = ?",
-                                      [s.station_id]).fetchone()[0]
+                got = fetch.download(
+                    conn,
+                    run_id,
+                    f"{base}/by_station/{s.station_id}.csv.gz",
+                    cfg.data_dir / "raw" / "by_station" / f"{s.station_id}.csv.gz",
+                )
+                loaded = conn.execute(
+                    "select count(*) from raw.observations where station_id = ?", [s.station_id]
+                ).fetchone()[0]
                 if got.changed or force or not loaded:
                     counts = load.load_observations(conn, run_id, s.station_id, got.path, got.sha256)
                     log.info("%s: %s", s.station_id, counts)

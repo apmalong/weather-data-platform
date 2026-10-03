@@ -52,7 +52,7 @@ def test_repair_can_be_turned_off(cfg):  # noqa: F811
 
 def test_failures_from_an_earlier_run_are_repaired_by_the_next(cfg):  # noqa: F811
     cfg.narratives.repair_attempts = 0
-    pipeline.run(cfg, provider=Scripted("unused"), days=1)            # fails, no repair allowed
+    pipeline.run(cfg, provider=Scripted("unused"), days=1)  # fails, no repair allowed
     cfg.narratives.repair_attempts = 1
     fixed = Scripted("Toronto saw a high of 21 °C and a low of 15 °C, with 2 mm of rain.")
     result = pipeline.run(cfg, provider=fixed, days=1)

@@ -87,6 +87,29 @@ Four macros run at the end of every build (`on-run-end` in `dbt_project.yml`):
 | `audit_failures_view` | `audit.all_failures` |
 | `data_issues_view` | `audit.data_issues` |
 
+## SQL style
+
+The SQL follows [Matt Mazur's SQL style guide](https://github.com/mattm/sql-style-guide), checked by
+sqlfluff (`.sqlfluff`) in CI: `uv run sqlfluff lint dbt/models dbt/tests`, and
+`uv run sqlfluff fix …` for what can be fixed automatically. In short: lowercase keywords, trailing
+commas, one column per line, `inner join` written out, explicit `as` for aliases, the earlier
+table first in a join condition, `!=`, single quotes, CTEs rather than subqueries, columns
+qualified whenever there's a join.
+
+Where the guide needs judgement rather than a rule:
+
+| Guideline | How it's applied |
+|---|---|
+| Avoid table aliases, except for long names | dbt refs are long, so aliases are used, but as words (`observations`, `stations`), never letters; sqlfluff rejects aliases under 3 characters |
+| Meaningful CTE names | By hand (`latest_observation`, `new_station_elements`, `inverted_days`) |
+| Explicit boolean conditions (`is_usable = true`) | By hand; no linter rule covers it |
+| End with `select * from` the last CTE | Not adopted: models end with their final select, which keeps short models short |
+| Columns that are SQL keywords (`value`, `label`) | Kept: they're part of the tables' interface to the report and the narratives |
+
+Jinja blocks (`{% if is_incremental() %}`) don't add an indentation level, so the SQL inside lines up
+with the SQL around it. The macros in `dbt/macros/` are mostly Jinja and aren't linted; SQL inside
+Python strings isn't either.
+
 ## Running it
 
 ```powershell

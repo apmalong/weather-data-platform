@@ -20,6 +20,7 @@ def test_element_catalog_reads_units_and_scale(readme):
 
 def test_wrapped_descriptions_are_joined(readme):
     catalog = {e.code: e for e in formats.element_catalog(readme)}
-    assert catalog["ACMC"].description == ("Average cloudiness midnight to midnight from 30-second ceilometer data "
-                                           "(percent)")
+    assert catalog["ACMC"].description == (
+        "Average cloudiness midnight to midnight from 30-second ceilometer data " "(percent)"
+    )
     assert catalog["ACMC"].unit == "percent"

@@ -8,6 +8,7 @@ style checks, and the run is stored in ops.eval_runs / ops.eval_results for comp
     wx eval                                  # current prompt and provider
     wx eval --prompt prompts/narrative_v2.md # a candidate prompt
 """
+
 import json
 import re
 import uuid
@@ -49,12 +50,16 @@ def load_cases(path: Path = CASES) -> list[dict]:
 def _days(conn, cases: list[dict]) -> dict[str, StationDay]:
     days = {}
     for case in cases:
-        row = conn.execute("""select station_id, city, province, station_name, obs_date::varchar, facts, input_hash
+        row = conn.execute(
+            """select station_id, city, province, station_name, obs_date::varchar, facts, input_hash
                               from marts.mart_narrative_input where city = ? and obs_date = ?""",
-                           [case["city"], str(case["date"])]).fetchone()
+            [case["city"], str(case["date"])],
+        ).fetchone()
         if row is None:
-            raise LookupError(f"eval case {case['id']}: no {case['city']} {case['date']} in mart_narrative_input "
-                              f"(outside the window?)")
+            raise LookupError(
+                f"eval case {case['id']}: no {case['city']} {case['date']} in mart_narrative_input "
+                f"(outside the window?)"
+            )
         days[case["id"]] = StationDay(row[0], row[1], row[2], row[3], row[4], json.loads(row[5]), row[6])
     return days
 
@@ -76,32 +81,62 @@ def run(cfg: Config, prompt_path: Path | None = None, provider: Provider | None 
         for case in cases:
             day = days[case["id"]]
             draft = drafts.get((day.station_id, day.obs_date)) or {"narrative": "", "cited": []}
-            checks = validate.validate(draft["narrative"], draft.get("cited") or [], day.facts, day.obs_date,
-                                       day.city, [c.city for c in cfg.stations.cities], cfg.narratives.intensity)
+            checks = validate.validate(
+                draft["narrative"],
+                draft.get("cited") or [],
+                day.facts,
+                day.obs_date,
+                day.city,
+                [c.city for c in cfg.stations.cities],
+                cfg.narratives.intensity,
+            )
             style = [name for name, (pattern, _) in STYLE.items() if pattern.search(draft["narrative"])]
             details = "; ".join(f"{c.name}: {c.detail}" for c in checks if not c.passed and c.detail)
-            result = {"case": case["id"], "city": day.city, "date": day.obs_date, "narrative": draft["narrative"],
-                      "details": details,
-                      "passed": bool(draft["narrative"]) and validate.passed(checks),
-                      "failed": [c.name for c in checks if not c.passed and c.severity == "error"],
-                      "warnings": [c.name for c in checks if not c.passed and c.severity == "warn"],
-                      "style": style}
+            result = {
+                "case": case["id"],
+                "city": day.city,
+                "date": day.obs_date,
+                "narrative": draft["narrative"],
+                "details": details,
+                "passed": bool(draft["narrative"]) and validate.passed(checks),
+                "failed": [c.name for c in checks if not c.passed and c.severity == "error"],
+                "warnings": [c.name for c in checks if not c.passed and c.severity == "warn"],
+                "style": style,
+            }
             results.append(result)
-            conn.execute("insert into ops.eval_results values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                         [eval_id, case["id"], day.city, day.obs_date, result["narrative"], result["passed"],
-                          ", ".join(result["failed"]) or None, ", ".join(result["warnings"]) or None,
-                          ", ".join(style) or None, json.dumps(draft.get("cited") or []), details or None])
+            conn.execute(
+                "insert into ops.eval_results values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    eval_id,
+                    case["id"],
+                    day.city,
+                    day.obs_date,
+                    result["narrative"],
+                    result["passed"],
+                    ", ".join(result["failed"]) or None,
+                    ", ".join(result["warnings"]) or None,
+                    ", ".join(style) or None,
+                    json.dumps(draft.get("cited") or []),
+                    details or None,
+                ],
+            )
         summary = {
-            "eval_id": eval_id, "prompt_version": prompt_version, "provider": provider.name, "model": call.model,
-            "cases": len(results), "passed": sum(r["passed"] for r in results),
+            "eval_id": eval_id,
+            "prompt_version": prompt_version,
+            "provider": provider.name,
+            "model": call.model,
+            "cases": len(results),
+            "passed": sum(r["passed"] for r in results),
             "error_failures": sum(len(r["failed"]) for r in results),
             "warnings": sum(len(r["warnings"]) for r in results),
             "style_issues": sum(len(r["style"]) for r in results),
             "avg_chars": round(sum(len(r["narrative"]) for r in results) / len(results), 1),
-            "input_tokens": call.input_tokens, "output_tokens": call.output_tokens,
+            "input_tokens": call.input_tokens,
+            "output_tokens": call.output_tokens,
         }
-        conn.execute("insert into ops.eval_runs values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                     [*summary.values(), ops.now()])
+        conn.execute(
+            "insert into ops.eval_runs values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [*summary.values(), ops.now()]
+        )
         return {**summary, "results": results}
     finally:
         conn.close()

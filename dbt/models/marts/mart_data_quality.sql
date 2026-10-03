@@ -4,7 +4,7 @@ with by_status as (
     select
         station_id,
         element,
-        count(*) filter (where is_expected) as expected_days,
+        count(*) filter (where is_expected = true) as expected_days,
         count(*) filter (where status = 'valid') as valid_days,
         count(*) filter (where status = 'trace') as trace_days,
         count(*) filter (where status = 'missing') as missing_days,
@@ -20,20 +20,28 @@ with by_status as (
 )
 
 select
-    s.city,
-    b.*,
-    case when b.expected_days > 0
-         then round((b.valid_days + b.trace_days + b.not_reported_days) / b.expected_days, 4) end as completeness,
-    w.end_date - b.last_usable_date as days_since_last,
+    stations.city,
+    by_status.*,
     case
-        when b.expected_days = 0 then 'not_expected'
+        when by_status.expected_days > 0
+            then round(
+                (by_status.valid_days + by_status.trace_days + by_status.not_reported_days) / by_status.expected_days,
+                4
+            )
+    end as completeness,
+    scope.end_date - by_status.last_usable_date as days_since_last,
+    case
+        when by_status.expected_days = 0 then 'not_expected'
         -- An element whose absence is normal (snow depth in summer) can't show a stalled feed.
-        when e.absent_means_zero then 'not_applicable'
-        when b.last_usable_date is null or w.end_date - b.last_usable_date > w.freshness_error_days then 'stale'
-        when w.end_date - b.last_usable_date > w.freshness_warn_days then 'lagging'
+        when elements.absent_means_zero = true then 'not_applicable'
+        when
+            by_status.last_usable_date is null
+            or scope.end_date - by_status.last_usable_date > scope.freshness_error_days
+            then 'stale'
+        when scope.end_date - by_status.last_usable_date > scope.freshness_warn_days then 'lagging'
         else 'fresh'
     end as freshness
-from by_status b
-join {{ ref('int_stations__selected') }} s on s.station_id = b.station_id
-join {{ ref('int_elements__in_scope') }} e on e.element = b.element
-cross join {{ ref('stg_config__run_scope') }} w
+from by_status
+inner join {{ ref('int_stations__selected') }} as stations on by_status.station_id = stations.station_id
+inner join {{ ref('int_elements__in_scope') }} as elements on by_status.element = elements.element
+cross join {{ ref('stg_config__run_scope') }} as scope

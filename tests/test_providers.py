@@ -6,16 +6,26 @@ from google.genai import errors
 
 from wx.narrate.providers import GeminiProvider, MockProvider, ProviderError, QuotaExhausted, StationDay
 
-DAY = StationDay("CAN06158731", "Toronto", "ON", "TORONTO INTL A", "2026-09-28", [
-    {"element": "TMAX", "label": "Maximum temperature", "value": 21.4, "unit": "degrees C", "status": "valid"},
-    {"element": "TMIN", "label": "Minimum temperature", "value": 15.3, "unit": "degrees C", "status": "valid"},
-    {"element": "PRCP", "label": "Precipitation", "value": 0.0, "unit": "mm", "status": "trace"},
-], "hash")
+DAY = StationDay(
+    "CAN06158731",
+    "Toronto",
+    "ON",
+    "TORONTO INTL A",
+    "2026-09-28",
+    [
+        {"element": "TMAX", "label": "Maximum temperature", "value": 21.4, "unit": "degrees C", "status": "valid"},
+        {"element": "TMIN", "label": "Minimum temperature", "value": 15.3, "unit": "degrees C", "status": "valid"},
+        {"element": "PRCP", "label": "Precipitation", "value": 0.0, "unit": "mm", "status": "trace"},
+    ],
+    "hash",
+)
 
 
 def ok_response(drafts):
-    return SimpleNamespace(text=json.dumps({"narratives": drafts}),
-                           usage_metadata=SimpleNamespace(prompt_token_count=100, candidates_token_count=40))
+    return SimpleNamespace(
+        text=json.dumps({"narratives": drafts}),
+        usage_metadata=SimpleNamespace(prompt_token_count=100, candidates_token_count=40),
+    )
 
 
 def api_error(code, status, details=()):
@@ -62,8 +72,10 @@ def test_rate_limit_waits_the_delay_the_api_asks_for():
 
 
 def test_daily_quota_moves_on_then_stops_cleanly():
-    per_day = {"@type": "type.googleapis.com/google.rpc.QuotaFailure",
-               "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}
+    per_day = {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}],
+    }
     gemini, client, _ = provider([api_error(429, "RESOURCE_EXHAUSTED", [per_day])] * 2)
     with pytest.raises(QuotaExhausted):
         gemini.generate([DAY], "instructions")

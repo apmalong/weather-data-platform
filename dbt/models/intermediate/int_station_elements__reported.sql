@@ -1,10 +1,10 @@
 -- Which in-scope element each selected station reports, and over which years (inventory).
 -- An element a station doesn't report isn't "missing" on its days; it was never expected.
 select
-    s.station_id,
-    i.element,
-    i.first_year,
-    i.last_year
-from {{ ref('int_stations__selected') }} s
-join {{ ref('stg_ghcnd__inventory') }} i on i.station_id = s.station_id
-join {{ ref('int_elements__in_scope') }} e on e.element = i.element
+    stations.station_id,
+    inventory.element,
+    inventory.first_year,
+    inventory.last_year
+from {{ ref('int_stations__selected') }} as stations
+inner join {{ ref('stg_ghcnd__inventory') }} as inventory on stations.station_id = inventory.station_id
+inner join {{ ref('int_elements__in_scope') }} as elements on inventory.element = elements.element

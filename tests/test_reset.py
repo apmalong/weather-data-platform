@@ -14,8 +14,10 @@ def cfg(tmp_path, monkeypatch):
     (cfg.data_dir / "report.html").write_text("x")
     (cfg.data_dir / "notes.txt").write_text("not ours")
     conn = duckdb.connect(str(cfg.warehouse))
-    conn.execute("create schema narratives; create table narratives.daily (x int);"
-                 "create schema marts; create table marts.keep (x int)")
+    conn.execute(
+        "create schema narratives; create table narratives.daily (x int);"
+        "create schema marts; create table marts.keep (x int)"
+    )
     conn.close()
     return cfg
 

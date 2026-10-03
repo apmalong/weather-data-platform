@@ -7,6 +7,7 @@ NOAA ever changes a layout, so the copy here can't silently drift.
 The element catalog (code, description, unit, scale) is parsed from the readme's ELEMENT section,
 so element handling is driven by NOAA's own documentation rather than a hand-written list.
 """
+
 import re
 from dataclasses import dataclass
 
@@ -20,15 +21,25 @@ class Column:
 
 FIXED_WIDTH: dict[str, list[Column]] = {
     "stations": [  # readme IV
-        Column("id", 1, 11), Column("latitude", 13, 20), Column("longitude", 22, 30),
-        Column("elevation", 32, 37), Column("state", 39, 40), Column("name", 42, 71),
-        Column("gsn_flag", 73, 75), Column("hcn_crn_flag", 77, 79), Column("wmo_id", 81, 85),
+        Column("id", 1, 11),
+        Column("latitude", 13, 20),
+        Column("longitude", 22, 30),
+        Column("elevation", 32, 37),
+        Column("state", 39, 40),
+        Column("name", 42, 71),
+        Column("gsn_flag", 73, 75),
+        Column("hcn_crn_flag", 77, 79),
+        Column("wmo_id", 81, 85),
     ],
     "countries": [Column("code", 1, 2), Column("name", 4, 64)],  # readme V
     "states": [Column("code", 1, 2), Column("name", 4, 50)],  # readme VI
     "inventory": [  # readme VII
-        Column("id", 1, 11), Column("latitude", 13, 20), Column("longitude", 22, 30),
-        Column("element", 32, 35), Column("first_year", 37, 40), Column("last_year", 42, 45),
+        Column("id", 1, 11),
+        Column("latitude", 13, 20),
+        Column("longitude", 22, 30),
+        Column("element", 32, 35),
+        Column("first_year", 37, 40),
+        Column("last_year", 42, 45),
     ],
 }
 
@@ -50,10 +61,10 @@ def readme_layouts(readme: str) -> dict[str, list[tuple[str, int, int]]]:
 
 @dataclass(frozen=True)
 class Element:
-    code: str          # may be a pattern such as WT** or SN*#
+    code: str  # may be a pattern such as WT** or SN*#
     description: str
-    unit: str | None   # unit after scaling, e.g. "degrees C"
-    scale: float       # multiply the raw integer by this to get `unit`
+    unit: str | None  # unit after scaling, e.g. "degrees C"
+    scale: float  # multiply the raw integer by this to get `unit`
     core: bool
 
 

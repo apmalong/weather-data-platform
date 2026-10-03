@@ -5,34 +5,38 @@
 -- (a NOAA revision, a policy change), never just because the pipeline ran again.
 with facts as (
     select
-        d.station_id,
-        d.obs_date,
+        cells.station_id,
+        cells.obs_date,
         list(
-            {'element': d.element, 'label': e.label,
-             -- a value only when usable; "not_reported" gusts are "none notable", not "0 km/h"
-             'value': case when d.status in ('valid', 'trace') then round(d.value * e.display_factor, 1) end,
-             'unit': e.display_unit,
-             'status': d.status,
-             -- Direction elements (unit "degrees" in the readme catalog) get their 8-point compass
-             -- point here: models converted degrees to compass points wrongly in ~1 in 8
-             -- narratives (290 -> "NW"), so the conversion isn't left to them.
-             'compass': case when e.unit = 'degrees' and d.status in ('valid', 'trace')
-                             then ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][(round(d.value / 45)::int % 8) + 1] end}
-            order by e.is_core desc, d.element
+            { 'element': cells.element, 'label': elements.label,
+            -- a value only when usable; "not_reported" gusts are "none notable", not "0 km/h"
+            'value': case
+                when cells.status in ('valid', 'trace') then round(cells.value * elements.display_factor, 1)
+            end,
+            'unit': elements.display_unit,
+            'status': cells.status,
+            -- Direction elements (unit "degrees" in the readme catalog) get their 8-point compass
+            -- point here: models converted degrees to compass points wrongly in ~1 in 8
+            -- narratives (290 -> "NW"), so the conversion isn't left to them.
+            'compass': case
+                when elements.unit = 'degrees' and cells.status in ('valid', 'trace')
+                    then ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][(round(cells.value / 45)::int % 8) + 1]
+            end }
+            order by elements.is_core desc, cells.element asc
         ) as facts
-    from {{ ref('fct_station_day_element') }} d
-    join {{ ref('dim_element') }} e on e.element = d.element
-    where d.status <> 'not_expected'
+    from {{ ref('fct_station_day_element') }} as cells
+    inner join {{ ref('dim_element') }} as elements on cells.element = elements.element
+    where cells.status != 'not_expected'
     group by all
 )
 
 select
-    f.station_id,
-    s.city,
-    s.province,
-    s.station_name,
-    f.obs_date,
-    to_json(f.facts) as facts,
-    md5(to_json(f.facts)::varchar) as input_hash
-from facts f
-join {{ ref('dim_station') }} s on s.station_id = f.station_id
+    fact_sheets.station_id,
+    stations.city,
+    stations.province,
+    stations.station_name,
+    fact_sheets.obs_date,
+    to_json(fact_sheets.facts) as facts,
+    md5(to_json(fact_sheets.facts)::varchar) as input_hash
+from facts as fact_sheets
+inner join {{ ref('dim_station') }} as stations on fact_sheets.station_id = stations.station_id
