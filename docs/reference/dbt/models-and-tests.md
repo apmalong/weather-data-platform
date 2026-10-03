@@ -1,10 +1,11 @@
-# dbt models and tests
+# dbt reference: models and tests
 
-The dbt project (`dbt/`) turns what `wx ingest` loaded into raw and config tables into the marts that
+Code: `dbt/` (stage 2, run by `wx transform`). The dbt project turns what `wx ingest` loaded into raw and config tables into the marts that
 the narratives and the report read. `wx transform` runs `dbt build`: 19 models, 69 data tests, 2 unit
 tests and 4 end-of-build hooks (94 nodes). Every column that carries lineage, change or quality
-information is described in [metadata_columns.md](metadata_columns.md); the same descriptions are
-in the warehouse as column comments.
+information is described in [metadata columns](../warehouse/metadata-columns.md); the same descriptions are
+in the warehouse as column comments. Why the tests are placed as they are:
+[data quality](../../explanation/data-quality.md). SQL style: [code style](../../explanation/code-style.md).
 
 ## Layers
 
@@ -65,12 +66,8 @@ station/date/element in `raw.observations`, and every selected station exists in
 The generic tests `unique_combination`, `within_bounds` and `single_row` are macros in
 `dbt/macros/tests.sql`, so the project needs no dbt packages.
 
-**Source errors are quarantined; tests guard the pipeline.** A bad value from NOAA never fails a
-test: it's set aside with a status upstream (`int_observations__assessed`) and counted. The
-error-severity tests check what the pipeline guarantees after that, so a failure means a bug in our
-code. Judgement calls (TAVG slightly outside its range, completeness below 90%) are warnings. The
-one exception by design is freshness: a stale station fails the build, as an alert. It rolls nothing
-back, because `mart_data_quality` has nothing downstream.
+Severity: error-severity tests guard what the pipeline guarantees; source errors are quarantined
+upstream instead, and judgement calls are warnings ([why](../../explanation/data-quality.md)).
 
 When a test fails, its failing rows are stored in the `audit` schema (one table per test), and
 `audit.all_failures` lists them all in one view. `audit.data_issues` adds quarantined values,
@@ -87,37 +84,15 @@ Four macros run at the end of every build (`on-run-end` in `dbt_project.yml`):
 | `audit_failures_view` | `audit.all_failures` |
 | `data_issues_view` | `audit.data_issues` |
 
-## SQL style
+## Commands
 
-The SQL follows [Matt Mazur's SQL style guide](https://github.com/mattm/sql-style-guide), checked by
-sqlfluff (`.sqlfluff`) in CI: `uv run sqlfluff lint dbt/models dbt/tests`, and
-`uv run sqlfluff fix …` for what can be fixed automatically. In short: lowercase keywords, trailing
-commas, one column per line, `inner join` written out, explicit `as` for aliases, the earlier
-table first in a join condition, `!=`, single quotes, CTEs rather than subqueries, columns
-qualified whenever there's a join.
-
-Where the guide needs judgement rather than a rule:
-
-| Guideline | How it's applied |
+| Command | Does |
 |---|---|
-| Avoid table aliases, except for long names | dbt refs are long, so aliases are used, but as words (`observations`, `stations`), never letters; sqlfluff rejects aliases under 3 characters |
-| Meaningful CTE names | By hand (`latest_observation`, `new_station_elements`, `inverted_days`) |
-| Explicit boolean conditions (`is_usable = true`) | By hand; no linter rule covers it |
-| End with `select * from` the last CTE | Not adopted: models end with their final select, which keeps short models short |
-| Columns that are SQL keywords (`value`, `label`) | Kept: they're part of the tables' interface to the report and the narratives |
+| `uv run wx transform` | `dbt build`: models, tests, hooks |
+| `uv run wx transform --full-refresh` | Rebuilds the incremental fact from raw |
+| `uv run wx transform --select <selection>` | Any dbt selection, e.g. `marts` |
+| `cd dbt; uv run dbt docs generate --profiles-dir .; uv run dbt docs serve --profiles-dir .` | Browse lineage and docs |
+| `uv run sqlfluff lint dbt/models dbt/tests` | SQL style check (CI) |
 
-Jinja blocks (`{% if is_incremental() %}`) don't add an indentation level, so the SQL inside lines up
-with the SQL around it. The macros in `dbt/macros/` are mostly Jinja and aren't linted; SQL inside
-Python strings isn't either.
-
-## Running it
-
-```powershell
-uv run wx transform                     # dbt build: models, tests, hooks
-uv run wx transform --full-refresh      # rebuild the incremental fact from raw
-uv run wx transform --select marts      # any dbt selection
-cd dbt; uv run dbt docs generate --profiles-dir .; uv run dbt docs serve --profiles-dir .   # browse lineage and docs
-```
-
-`wx transform` reads config that `wx ingest` publishes, so after editing `config/pipeline.yml` run
-`wx ingest` first (or `wx run`).
+`wx transform` reads the config `wx ingest` publishes: after editing `config/pipeline.yml`, run
+`wx ingest` first ([change element rules](../../how-to/change-element-rules.md)).

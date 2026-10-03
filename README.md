@@ -79,15 +79,16 @@ To run it on a schedule instead, see [Orchestration](#orchestration-optional).
 
 ## Documentation
 
-| Document | What's in it |
-|---|---|
-| [docs/ingestion.md](docs/ingestion.md) | `wx ingest` step by step: what each step does, checks and records; how it fails; its tests |
-| [docs/dbt_models.md](docs/dbt_models.md) | Every dbt model with its grain, purpose and tests; the test inventory; the end-of-build hooks |
-| [docs/source_conventions.md](docs/source_conventions.md) | NOAA's units and conversions, values that mean more than their number (trace, sentinels), and how Environment Canada's data maps to NOAA's |
-| [docs/metadata_columns.md](docs/metadata_columns.md) | Every lineage, change, quality and run column, and the `ops`, `narratives` and `audit` schemas |
-| [docs/health_report.md](docs/health_report.md) | An example of `wx health` output |
+[docs/](docs/README.md) is organised with [Diátaxis](https://diataxis.fr):
 
-This README covers the design decisions and tradeoffs; the documents above go into detail.
+| Kind | For | Start with |
+|---|---|---|
+| Tutorial | Learning by doing | [Getting started](docs/tutorials/getting-started.md): run it, read the report, query the warehouse, add a city |
+| How-to guides | A specific task | [Add a city](docs/how-to/add-a-city.md), [change the prompt](docs/how-to/change-the-prompt.md), [investigate data issues](docs/how-to/investigate-data-issues.md), [all guides](docs/README.md#how-to-guides) |
+| Reference | Looking something up, grouped like the repo | [CLI](docs/reference/cli.md), [configuration](docs/reference/configuration.md), [ingest](docs/reference/app/ingest.md), [dbt models and tests](docs/reference/dbt/models-and-tests.md), [narratives](docs/reference/llm/narratives.md), [all reference](docs/README.md#reference) |
+| Explanation | Why it's built this way | [Architecture](docs/explanation/architecture.md), [data quality](docs/explanation/data-quality.md), [narratives](docs/explanation/narratives.md), [all explanation](docs/README.md#explanation) |
+
+This README covers setup, architecture, design decisions and tradeoffs; the docs go into detail.
 
 ## Architecture
 
@@ -135,8 +136,8 @@ flowchart LR
 | `marts` | `fct_observations` (incremental), `fct_station_day_element`, `mart_station_daily`, `mart_data_quality`, `mart_source_changes`, `mart_narrative_input`, `dim_station`, `dim_element` | What people and the narratives use |
 | `audit` | one table of failing rows per dbt test, `all_failures`, `data_issues` | What's wrong, in one place |
 
-In more detail: [docs/ingestion.md](docs/ingestion.md) walks through `wx ingest` step by step,
-with what each step checks and records and the tests behind it; [docs/dbt_models.md](docs/dbt_models.md)
+In more detail: [docs/reference/app/ingest.md](docs/reference/app/ingest.md) walks through `wx ingest` step by step,
+with what each step checks and records and the tests behind it; [docs/reference/dbt/models-and-tests.md](docs/reference/dbt/models-and-tests.md)
 lists every model with its grain, purpose and tests.
 
 ## Design decisions
@@ -241,11 +242,11 @@ correct values NOAA flagged. Each would give the narratives a number nobody meas
 a gap, labelled with its reason, and the completeness report counts it.
 
 How NOAA encodes units and special values (a trace is 0 with flag `T`, gusts in tenths of m/s shown
-as km/h, old "no gust" sentinels) is in [docs/source_conventions.md](docs/source_conventions.md).
+as km/h, old "no gust" sentinels) is in [docs/reference/noaa/conventions.md](docs/reference/noaa/conventions.md).
 
 Every column that records lineage, change, quality or a run (`_row_hash`, `policy_hash`,
 `input_hash`, `is_deleted`, NOAA's flags, the `ops` ledger…) is explained in
-[docs/metadata_columns.md](docs/metadata_columns.md). The same definitions are in the dbt YAML and are
+[docs/reference/warehouse/metadata-columns.md](docs/reference/warehouse/metadata-columns.md). The same definitions are in the dbt YAML and are
 written to the warehouse as column comments on every build.
 
 ### Data quality: detect, quarantine, measure, surface
@@ -394,7 +395,7 @@ Every stage writes to the `ops` schema: `runs`, `downloads`, `loads`, `checks`,
 `station_resolution`, `dbt_runs` and `dbt_node_runs` (from a dbt `on-run-end` hook), `llm_calls`
 (tokens, latency, retries, model) and `eval_runs`/`eval_results`. `wx health` turns them into one
 report with an overall status, the reasons for it, and per-stage detail. See
-[docs/health_report.md](docs/health_report.md) for an example.
+[docs/reference/app/health-report-example.md](docs/reference/app/health-report-example.md) for an example.
 
 Failing data-test rows land in the `audit` schema, one table per test (dbt's `store_failures`), and
 `audit.all_failures` puts them in one place: one row per failure, with the test, the model it tests,
@@ -488,7 +489,7 @@ so, and the task retries.
   0 from 0°, which would read as "0 km/h from the N"; US data can carry `mflag P` (missing, presumed
   zero); NOAA's other file format uses `-9999` for missing. None occur in the current window or
   stations. Each needs a small config rule before extending the window or adding US cities
-  ([docs/source_conventions.md](docs/source_conventions.md)).
+  ([docs/reference/noaa/conventions.md](docs/reference/noaa/conventions.md)).
 - **Data checks:** turn the one-off Environment Canada comparison into a scheduled check on a sample
   of station-days. That would also have caught the old files' gust units automatically. Surface
   NOAA's change history (`status.txt`) in the health report.
@@ -511,7 +512,7 @@ so, and the task retries.
 - **Python:** formatted by [black](https://black.readthedocs.io) and linted by ruff, both at 120
   characters (`pyproject.toml`).
 - **SQL:** [Matt Mazur's SQL style guide](https://github.com/mattm/sql-style-guide), enforced by
-  sqlfluff (`.sqlfluff`); [docs/dbt_models.md](docs/dbt_models.md#sql-style) lists where the guide
+  sqlfluff (`.sqlfluff`); [docs/explanation/code-style.md](docs/explanation/code-style.md) lists where the guide
   needs judgement and how it's applied.
 
 CI fails on any violation: `uv run black --check app orchestration`, `uv run ruff check .`,
@@ -537,5 +538,5 @@ llm/                       3. what the narrative stage reads
   prompts/                 narrative prompts, versioned (v3 is current)
   evals/cases.yml          the evaluation set
 orchestration/             optional Airflow: Dockerfile, compose, DAG
-docs/                      ingestion, dbt models and tests, NOAA conventions, metadata columns, example health report
+docs/                      Diátaxis: tutorials/, how-to/, reference/ (grouped like the repo), explanation/
 ```

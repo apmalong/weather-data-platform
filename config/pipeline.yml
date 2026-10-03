@@ -66,7 +66,7 @@ elements:
     WSFG: [0, 100]
     WDFG: [0, 360]
   # Units for readers (narratives and the report), converted from the readme's units: value * factor.
-  # Fact tables and daily marts keep NOAA's units. See docs/source_conventions.md for every element's unit chain.
+  # Fact tables and daily marts keep NOAA's units. See docs/reference/noaa/conventions.md for every element's unit chain.
   display:
     WSFG: {unit: km/h, factor: 3.6}   # m/s -> km/h: 3,600 s per hour / 1,000 m per km; Canada reports wind in km/h
     SNOW: {unit: cm, factor: 0.1}     # mm -> cm; snowfall is reported in cm

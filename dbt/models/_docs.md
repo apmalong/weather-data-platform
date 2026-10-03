@@ -1,6 +1,6 @@
 {#- Column definitions shared across sources and models: written once, referenced with doc('name').
     persist_docs writes them to the warehouse as comments (marts here, sources in an on-run-end hook),
-    so they show in `describe` and the DuckDB UI. docs/metadata_columns.md has the overview. -#}
+    so they show in `describe` and the DuckDB UI. docs/reference/warehouse/metadata-columns.md has the overview. -#}
 
 {% docs run_id %}
 The `wx` run that wrote the row: its UTC start time plus six random hex characters
@@ -157,7 +157,7 @@ From config: physically plausible range in the element's unit. Values outside ar
 {% docs display_unit %}
 From config: the unit narratives and the report use (km/h for gusts, cm for snow), with
 `display_factor` converting from the stored unit (m/s × 3.6 = km/h; mm × 0.1 = cm). Fact tables and the
-daily mart keep NOAA's units. docs/source_conventions.md gives each element's unit chain and the reason for it.
+daily mart keep NOAA's units. docs/reference/noaa/conventions.md gives each element's unit chain and the reason for it.
 {% enddocs %}
 
 {% docs network_code %}

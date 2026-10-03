@@ -1,4 +1,4 @@
-# Metadata columns
+# Warehouse reference: metadata columns
 
 The warehouse (`data/warehouse.duckdb`) holds weather values and also the columns that say where
 each value came from, when it last changed, whether it can be used, and what produced it. This page

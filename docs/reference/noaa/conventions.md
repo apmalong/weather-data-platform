@@ -1,9 +1,10 @@
-# NOAA data conventions
+# NOAA data conventions reference
 
 How to read the numbers in NOAA's GHCN-Daily files: the units, how they're converted, and the values
 whose meaning isn't the number itself. Sources: NOAA's `readme.txt` (shipped with the data and loaded
 into `raw.documents`) and what the five stations' files actually contain. Counts are from the full
-station histories loaded on 2026-10-03.
+station histories loaded on 2026-10-03. Why NOAA's data and Environment Canada's differ, and what that
+means for this pipeline: [NOAA and Environment Canada](../../explanation/noaa-and-environment-canada.md).
 
 ## Units and conversions
 
@@ -33,8 +34,7 @@ Directions are where the gust came **from**, clockwise from north. It's computed
 `mart_narrative_input`, and with the same formula in the report, because the model got it wrong in 19
 of 103 narratives when asked to do it itself.
 
-To change a display unit, edit `elements.display`: for example `WSFG: {unit: knots, factor: 1.944}`
-(1 m/s = 1.944 knots). Narratives, validation and the report all follow.
+To change a display unit: [change element rules](../../how-to/change-element-rules.md).
 
 ## Values that mean more than their number
 
@@ -53,23 +53,13 @@ To change a display unit, edit `elements.display`: for example `WSFG: {unit: kno
 | `mflag P` | **"Missing, presumed zero"**, from US cooperative data. | 0 rows (US only) | **Not handled**: would read as a real 0. Matters for US cities. |
 | MDPR / DAPR | Precipitation **totalled over several days**, and how many days. A day without PRCP may be inside such a total. | Not reported by these stations | Not in scope. |
 
-The two unhandled cases, and `-9999`, are listed in the README's "With more time". Each is a small
-config rule: treat a WSFG/WDFG pair of 0 as `not_reported`; treat `mflag P` and `-9999` as `missing`.
+The unhandled cases are listed in the README's "With more time"; each would be a small config rule
+(a WSFG/WDFG pair of 0 as `not_reported`; `mflag P` and `-9999` as `missing`).
 
-## Environment Canada as a second source
+## Mapping to Environment Canada's API
 
-NOAA's Canadian data is a copy of Environment Canada's, and the copy lags and loses readings:
-
-- **Freshness:** on 2026-10-03, NOAA's files for all five stations ended on 29 September, while
-  Environment Canada's `climate-daily` API had 30 September to 2 October. NOAA's files carried a new
-  Last-Modified time but identical contents, which is why ingest compares bytes, not timestamps.
-- **Completeness:** Environment Canada had snow on the ground on 21 days at Toronto and Calgary
-  where NOAA's file has no reading, e.g. 4 cm at Vancouver on 2 February 2025.
-- **Agreement:** where both have a value, they matched on every day checked, including Vancouver's
-  snowless 2025–26 winter (no measurable snowfall; trace on 20 February, 10 and 15 March 2026).
-
-Mapping between the two: the climate ID is the NOAA station ID without `CAN0` (CAN01108395 →
-1108395). Field names and units differ; checked on Ottawa, 12 August 2026 (a 107 km/h gust):
+`api.weather.gc.ca`, collection `climate-daily`. The climate ID is the NOAA station ID without
+`CAN0` (CAN01108395 → 1108395). Checked on Ottawa, 12 August 2026 (a 107 km/h gust):
 
 | NOAA | Environment Canada | Difference |
 |---|---|---|
@@ -82,7 +72,3 @@ Mapping between the two: the climate ID is the NOAA station ID without `CAN0` (C
 | WDFG (degrees) | DIRECTION_MAX_GUST (tens of degrees) | Units only: 31 → 310° |
 | `mflag T` | `*_FLAG = T` | Same meaning: trace |
 | `qflag` (NOAA's checks) | none | Environment Canada's recent values are provisional; NOAA's checks run later |
-
-The README's "With more time" describes how the two could be combined: Environment Canada first for
-freshness, NOAA's quality flags applied when they arrive, NOAA filling gaps, and the source recorded
-for every value.

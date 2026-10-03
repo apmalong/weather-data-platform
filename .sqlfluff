@@ -2,7 +2,7 @@
 #   uv run sqlfluff lint dbt      check (CI runs this)
 #   uv run sqlfluff fix dbt       fix what can be fixed automatically
 # Rules the guide has but no linter can judge (meaningful CTE and alias names, ending with a
-# `select *` from the last CTE) are followed by hand; see docs/dbt_models.md.
+# `select *` from the last CTE) are followed by hand; see docs/explanation/code-style.md.
 
 [sqlfluff]
 dialect = duckdb
